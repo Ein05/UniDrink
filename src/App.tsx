@@ -780,11 +780,15 @@ const AdminDashboard = () => {
   }, [navigate]);
 
   const updateStatus = async (id: string, status: Order['status']) => {
-    await supabase.from('orders').update({ status }).eq('id', id);
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
+    const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+    if (error) alert("Lỗi cập nhật: " + error.message);
   };
 
   const togglePaid = async (id: string, is_paid: boolean) => {
-    await supabase.from('orders').update({ is_paid }).eq('id', id);
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, is_paid } : o));
+    const { error } = await supabase.from('orders').update({ is_paid }).eq('id', id);
+    if (error) alert("Lỗi cập nhật: " + error.message);
   };
 
   const handleLogout = async () => {

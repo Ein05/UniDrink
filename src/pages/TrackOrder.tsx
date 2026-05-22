@@ -17,8 +17,9 @@ const TrackOrder = () => {
     setLoading(true);
     setErrorMsg(null);
     setOrder(null);
+    const cleanCode = code.replace('#', '').trim().toUpperCase();
     try {
-      const { data, error } = await (supabase as any).rpc('get_order_by_code', { p_code: code.toUpperCase() });
+      const { data, error } = await (supabase as any).rpc('get_order_by_code', { p_code: cleanCode });
       if (error) throw error;
       const result = data as Order[] | null;
       if (!result || result.length === 0) {
@@ -26,8 +27,8 @@ const TrackOrder = () => {
       } else {
         setOrder(result[0]);
       }
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Có lỗi xảy ra. Vui lòng thử lại.');
+    } catch (err: any) {
+      setErrorMsg(err?.message || 'Có lỗi xảy ra. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }

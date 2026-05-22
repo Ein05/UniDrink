@@ -11,6 +11,7 @@ const Checkout = () => {
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successCode, setSuccessCode] = useState<string | null>(null);
+  const [orderTotal, setOrderTotal] = useState(0);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -48,6 +49,7 @@ const Checkout = () => {
 
       if (error) throw error;
 
+      setOrderTotal(cart.total);
       setSuccessCode(data as string);
       cart.clearCart();
     } catch (err: unknown) {
@@ -79,7 +81,11 @@ const Checkout = () => {
           <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500">
             <p className="text-brand-ink font-bold font-sans">Vui lòng quét mã QR dưới đây để thanh toán:</p>
             <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
-              <img src="/qr.jfif" alt="QR Code" className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto" />
+              <img
+                src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'MB'}-${import.meta.env.VITE_BANK_ACCOUNT || '0912345678'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'NGUYEN VAN A')}`}
+                alt="VietQR Code"
+                className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
+              />
             </div>
             <p className="text-xs text-brand-muted font-bold">Nội dung chuyển khoản: <span className="text-brand-brown font-black">{successCode}</span></p>
           </div>

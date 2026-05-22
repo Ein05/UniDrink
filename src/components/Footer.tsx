@@ -6,7 +6,7 @@ const Footer = () => {
   return (
     <footer className="mt-20 bg-brand-brown py-16 px-6 md:px-10 text-white border-t border-white/10">
       <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-16 pb-12 border-b border-white/10">
-        
+
         {/* Brand Column */}
         <div className="space-y-4">
           <h2 className="text-3xl font-serif font-black italic tracking-tight text-brand-cream">
@@ -29,7 +29,7 @@ const Footer = () => {
             </li>
             <li className="flex items-center gap-3">
               <Mail className="w-4 h-4 text-brand-caramel shrink-0" />
-              <a href="mailto:support@unidrink.vn" className="hover:text-brand-caramel transition-colors">support@unidrink.vn</a>
+              <a href="mailto:23010179@st.phenikaa.edu.vn" className="hover:text-brand-caramel transition-colors">23010179@st.phenikaa.edu.vn</a>
             </li>
             <li className="flex items-center gap-3">
               <MapPin className="w-4 h-4 text-brand-caramel shrink-0" />

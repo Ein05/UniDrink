@@ -82,7 +82,7 @@ const Checkout = () => {
             <p className="text-brand-ink font-bold font-sans">Vui lòng quét mã QR dưới đây để thanh toán:</p>
             <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
               <img
-                src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'MB'}-${import.meta.env.VITE_BANK_ACCOUNT || '0912345678'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'NGUYEN VAN A')}`}
+                src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'BIDV'}-${import.meta.env.VITE_BANK_ACCOUNT || '8843962433'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'VU DUC ANH')}`}
                 alt="VietQR Code"
                 className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
               />

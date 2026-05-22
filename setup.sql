@@ -176,5 +176,26 @@ values
 insert into settings (key, value, is_public)
 values 
 ('usd_rate', '25450', true),
-('delivery_fee', '5000', true),
 ('is_open', 'true', true);
+
+-- 5. RPC for tracking order
+create or replace function get_order_by_code(p_code text)
+returns table (
+  id uuid,
+  order_code text, 
+  status text, 
+  is_paid boolean, 
+  customer_name text, 
+  total_price integer,
+  created_at timestamptz
+)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  return query select o.id, o.order_code, o.status, o.is_paid, o.customer_name, o.total_price, o.created_at
+  from orders o 
+  where o.order_code = p_code;
+end;
+$$;

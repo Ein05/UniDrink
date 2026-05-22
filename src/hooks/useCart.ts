@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import type { Product } from '../types';
 
 export interface CartItem extends Product {
@@ -7,8 +7,12 @@ export interface CartItem extends Product {
 
 export function useCart() {
   const [items, setItems] = useState<CartItem[]>(() => {
-    const saved = localStorage.getItem('unicafe_cart');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('unicafe_cart');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   useEffect(() => {
@@ -44,7 +48,11 @@ export function useCart() {
 
   const clearCart = () => setItems([]);
 
-  const total = items.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  // useMemo để tránh tính lại mỗi render
+  const total = useMemo(
+    () => items.reduce((acc, item) => acc + item.price * item.quantity, 0),
+    [items]
+  );
 
   return { items, addToCart, removeFromCart, updateQuantity, clearCart, total };
 }

@@ -1,8 +1,0 @@
-{
-  "name": "UniCafe - Trạm Đồ Uống Sinh Viên",
-  "description": "Hệ thống đặt đồ uống cao cấp cho khuôn viên đại học với giao diện phong cách cà phê hiện đại.",
-  "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
-}

@@ -26,13 +26,16 @@ const Home = () => {
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    // FIX #9: reset products ngay để tránh flash data cũ khi sort thay đổi
+    setProducts([]);
+    setLoading(true);
+
     async function fetchProducts() {
-      setLoading(true);
       try {
         const { data, error } = await supabase
           .from('products')
+          // FIX #4: bỏ filter is_available để hiển thị overlay "hết hàng" đúng nghiệp vụ
           .select('*')
-          .eq('is_available', true)
           .eq('is_deleted', false)
           .order('price', { ascending: sortBy === 'price_asc' });
 
@@ -43,14 +46,13 @@ const Home = () => {
           setErrorStatus(null);
         }
       } finally {
-        // Đảm bảo loading luôn được reset dù có lỗi hay không
         setLoading(false);
       }
     }
     fetchProducts();
   }, [sortBy]);
 
-  // Chỉ filter trên client, không sort lại (đã sort server-side)
+  // Filter client-side (không sort lại, đã sort server-side)
   const filteredProducts = useMemo(() =>
     products.filter(p => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
@@ -80,7 +82,7 @@ const Home = () => {
       {errorStatus && (
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100 text-center">
-            {t.error || "Có lỗi xảy ra: "} {errorStatus}
+            {t.error || 'Có lỗi xảy ra: '} {errorStatus}
           </div>
         </div>
       )}

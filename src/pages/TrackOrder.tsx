@@ -59,10 +59,11 @@ const TrackOrder = () => {
       </div>
       <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-4">
         <input
+          required
           type="text"
           placeholder="Nhập mã đơn, vd: DH000001"
           value={code}
-          onChange={e => setCode(e.target.value)}
+          onChange={e => setCode(e.target.value.toUpperCase())}
           className="flex-1 bg-white border border-brand-beige rounded-2xl px-6 py-4 outline-none font-medium uppercase focus:border-brand-brown/50 transition-all text-center sm:text-left"
         />
         <button

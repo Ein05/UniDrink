@@ -13,6 +13,9 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { lang, t, cart } = useApp();
   const [isAdded, setIsAdded] = useState(false);
 
+  // FIX #7: lắng nghe maxReachedId từ cart để hiện feedback
+  const isAtMax = cart.maxReachedId === product.id;
+
   useEffect(() => {
     if (!isAdded) return;
     const timeout = setTimeout(() => setIsAdded(false), 1500);
@@ -21,7 +24,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleAdd = () => {
     cart.addToCart(product);
-    setIsAdded(true);
+    // chỉ set isAdded nếu chưa ở max
+    const currentQty = cart.items.find(i => i.id === product.id)?.quantity ?? 0;
+    if (currentQty < cart.MAX_QUANTITY) {
+      setIsAdded(true);
+    }
   };
 
   const name = lang === 'EN' ? product.name_en || product.name : product.name;
@@ -52,6 +59,13 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         <p className="text-xs text-brand-muted font-serif italic line-clamp-2 pr-8 leading-relaxed mt-1">
           {desc}
         </p>
+
+        {/* FIX #7: thông báo đạt giới hạn tối đa */}
+        {isAtMax && (
+          <p className="text-[10px] text-amber-600 font-black uppercase tracking-wider mt-1">
+            Tối đa {cart.MAX_QUANTITY} món/loại
+          </p>
+        )}
       </div>
 
       <button
@@ -59,9 +73,11 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         disabled={!product.is_available}
         className={cn(
           "absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all",
-          isAdded
-            ? "bg-green-500 text-white"
-            : "bg-brand-beige/50 text-brand-brown hover:bg-brand-brown hover:text-white"
+          isAtMax
+            ? "bg-amber-100 text-amber-600"
+            : isAdded
+              ? "bg-green-500 text-white"
+              : "bg-brand-beige/50 text-brand-brown hover:bg-brand-brown hover:text-white"
         )}
       >
         {isAdded ? <CheckCircle className="w-4 h-4" /> : <Plus className="w-4 h-4" />}

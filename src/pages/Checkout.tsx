@@ -1,11 +1,10 @@
 import React, { useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle } from 'lucide-react';
-import { cn, formatCurrency } from '../lib/utils';
+import { cn, formatCurrency, normalizePhone } from '../lib/utils';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../lib/supabase';
-import Home from './Home';
 
 const Checkout = () => {
   const { t, cart, lang } = useApp();
@@ -20,21 +19,29 @@ const Checkout = () => {
     paymentMethod: 'cash' as 'cash' | 'transfer',
   });
 
+  // FIX #1: dùng Navigate thay vì render <Home /> trong layout sai
   if (cart.items.length === 0 && !successCode) {
-    return <Home />;
+    return <Navigate to="/" replace />;
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg(null);
 
+    // FIX #6: validate số điện thoại VN (10 số, bắt đầu bằng 0)
+    const normalizedPhone = normalizePhone(formData.phone);
+    if (!/^0\d{9}$/.test(normalizedPhone)) {
+      setErrorMsg('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 số.');
+      return;
+    }
+
+    setLoading(true);
     try {
       const { data, error } = await (supabase as any).rpc('create_order_with_items', {
-        p_customer_name: formData.name,
-        p_customer_phone: formData.phone,
-        p_address: formData.address,
-        p_note: formData.note,
+        p_customer_name: formData.name.trim(),
+        p_customer_phone: normalizedPhone,
+        p_address: formData.address.trim(),
+        p_note: formData.note.trim(),
         p_payment_method: formData.paymentMethod,
         p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
       });
@@ -44,7 +51,7 @@ const Checkout = () => {
       setSuccessCode(data as string);
       cart.clearCart();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Ordering failed. Please try again.');
+      setErrorMsg(err instanceof Error ? err.message : 'Đặt hàng thất bại. Vui lòng thử lại.');
     } finally {
       setLoading(false);
     }
@@ -97,9 +104,7 @@ const Checkout = () => {
       className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-16"
     >
       <div className="flex-1 space-y-10">
-        <div className="flex items-center gap-4">
-          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">Thanh toán.</h2>
-        </div>
+        <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">Thanh toán.</h2>
 
         {errorMsg && (
           <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100">
@@ -127,11 +132,13 @@ const Checkout = () => {
               <input
                 required
                 type="tel"
+                minLength={10}
+                maxLength={11}
                 className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
                 placeholder="Ex: 0912345678"
                 value={formData.phone}
                 onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '');
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 11);
                   setFormData({ ...formData, phone: val });
                 }}
               />

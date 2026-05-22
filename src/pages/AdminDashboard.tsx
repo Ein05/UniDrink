@@ -12,6 +12,7 @@ type DayReport = {
   completedOrders: number;
   cancelledOrders: number;
   revenue: number;
+  unpaidDoneOrders: number; // FIX #5: theo dõi đơn done chưa thu tiền
 };
 
 const AdminDashboard = () => {
@@ -28,12 +29,16 @@ const AdminDashboard = () => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
       if (!acc[date]) {
-        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0 };
+        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0 };
       }
       acc[date].totalOrders += 1;
       if (order.status === 'done') {
         acc[date].completedOrders += 1;
-        if (order.is_paid) acc[date].revenue += order.total_price;
+        if (order.is_paid) {
+          acc[date].revenue += order.total_price;
+        } else {
+          acc[date].unpaidDoneOrders += 1; // FIX #5: đếm đơn done chưa thu tiền
+        }
       }
       if (order.status === 'cancelled') {
         acc[date].cancelledOrders += 1;
@@ -53,6 +58,9 @@ const AdminDashboard = () => {
   }, [orders]);
 
   useEffect(() => {
+    // FIX #2: khai báo channel biến ngoài để cleanup đúng
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
     const fetchOrders = async () => {
       const { data, error } = await supabase
         .from('orders')
@@ -76,37 +84,55 @@ const AdminDashboard = () => {
         navigate('/admin');
         return;
       }
+
       setIsAuthenticated(true);
-      fetchOrders();
-      fetchProducts();
+      await Promise.all([fetchOrders(), fetchProducts()]);
+
+      // FIX #2: chỉ subscribe realtime SAU KHI xác nhận auth
+      channel = supabase
+        .channel('schema-db-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
+        .subscribe();
     };
 
     checkAuth();
 
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrders)
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, [navigate]);
 
+  // FIX #3: Optimistic update với rollback khi lỗi
   const updateStatus = async (id: string, status: Order['status']) => {
+    const previous = orders.find(o => o.id === id);
     setOrders(prev => prev.map(o => o.id === id ? { ...o, status } : o));
     const { error } = await (supabase as any).from('orders').update({ status }).eq('id', id);
-    if (error) alert('Lỗi cập nhật: ' + error.message);
+    if (error) {
+      if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
+      alert('Lỗi cập nhật: ' + error.message);
+    }
   };
 
+  // FIX #3: rollback cho togglePaid
   const togglePaid = async (id: string, is_paid: boolean) => {
+    const previous = orders.find(o => o.id === id);
     setOrders(prev => prev.map(o => o.id === id ? { ...o, is_paid } : o));
     const { error } = await (supabase as any).from('orders').update({ is_paid }).eq('id', id);
-    if (error) alert('Lỗi cập nhật: ' + error.message);
+    if (error) {
+      if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
+      alert('Lỗi cập nhật: ' + error.message);
+    }
   };
 
+  // FIX #3: rollback cho toggleProduct
   const toggleProduct = async (id: string, is_available: boolean) => {
+    const previous = products.find(p => p.id === id);
     setProducts(prev => prev.map(p => p.id === id ? { ...p, is_available } : p));
     const { error } = await (supabase as any).from('products').update({ is_available }).eq('id', id);
-    if (error) alert('Lỗi cập nhật sản phẩm: ' + error.message);
+    if (error) {
+      if (previous) setProducts(prev => prev.map(p => p.id === id ? previous : p));
+      alert('Lỗi cập nhật sản phẩm: ' + error.message);
+    }
   };
 
   const handleLogout = async () => {
@@ -164,13 +190,14 @@ const AdminDashboard = () => {
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-brand-beige shadow-sm overflow-hidden">
             <h3 className="text-2xl font-serif font-black text-brand-ink mb-8">Báo cáo doanh thu hằng ngày</h3>
             <div className="overflow-x-auto">
-              <table className="w-full text-left min-w-[600px] border-collapse">
+              <table className="w-full text-left min-w-[650px] border-collapse">
                 <thead>
                   <tr className="border-b border-brand-beige">
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted whitespace-nowrap">Ngày</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Tổng đơn</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Hoàn thành</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Đã hủy</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Chưa thu</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">Doanh thu</th>
                   </tr>
                 </thead>
@@ -181,12 +208,19 @@ const AdminDashboard = () => {
                       <td className="py-5 px-4 font-bold text-center">{report.totalOrders}</td>
                       <td className="py-5 px-4 font-bold text-green-600 text-center">{report.completedOrders}</td>
                       <td className="py-5 px-4 font-bold text-red-500 text-center">{report.cancelledOrders}</td>
+                      {/* FIX #5: cột cảnh báo đơn done chưa thu tiền */}
+                      <td className="py-5 px-4 text-center">
+                        {report.unpaidDoneOrders > 0
+                          ? <span className="bg-amber-100 text-amber-700 font-black text-[10px] px-2 py-1 rounded-full">{report.unpaidDoneOrders}</span>
+                          : <span className="text-brand-muted font-bold">—</span>
+                        }
+                      </td>
                       <td className="py-5 px-4 font-black text-brand-brown text-right whitespace-nowrap">{formatCurrency(report.revenue)}</td>
                     </tr>
                   ))}
                   {reportsByDate.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="py-10 text-center text-brand-muted italic">Chưa có dữ liệu báo cáo</td>
+                      <td colSpan={6} className="py-10 text-center text-brand-muted italic">Chưa có dữ liệu báo cáo</td>
                     </tr>
                   )}
                 </tbody>
@@ -205,6 +239,7 @@ const AdminDashboard = () => {
                     "text-[10px] font-black uppercase px-4 py-1 rounded-full border",
                     order.status === 'done' ? "bg-green-50 text-green-700 border-green-200" :
                     order.status === 'cancelled' ? "bg-red-50 text-red-700 border-red-200" :
+                    order.status === 'processing' ? "bg-amber-50 text-amber-700 border-amber-200" :
                     "bg-brand-cream text-brand-brown border-brand-beige"
                   )}>
                     {t[`status${order.status.charAt(0).toUpperCase() + order.status.slice(1)}` as keyof typeof t] || order.status}
@@ -212,6 +247,12 @@ const AdminDashboard = () => {
                   {order.is_paid && (
                     <span className="bg-blue-50 text-blue-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-blue-200">
                       {t.paid}
+                    </span>
+                  )}
+                  {/* FIX #5: cảnh báo đơn done nhưng chưa thu tiền */}
+                  {order.status === 'done' && !order.is_paid && (
+                    <span className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-amber-200 animate-pulse">
+                      ⚠ Chưa thu tiền
                     </span>
                   )}
                 </div>
@@ -276,6 +317,9 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
+          {orders.length === 0 && (
+            <div className="py-20 text-center text-brand-muted italic">Chưa có đơn hàng nào</div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

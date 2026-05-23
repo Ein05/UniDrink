@@ -122,10 +122,7 @@ export const translations = {
     colAction: "Thao tác",
     colDetails: "Chi tiết thay đổi",
     exportReport: "Xuất báo cáo (CSV)",
-    colFake: "Đơn fake",
-    markFake: "Báo đơn ảo",
-    unmarkFake: "Bỏ báo ảo",
-    fakeBadge: "🔴 Đơn ảo (Không liên hệ được)",
+    colPendingOrders: "Chờ duyệt",
   },
   EN: {
     brand: "UniCafe",
@@ -250,9 +247,6 @@ export const translations = {
     colAction: "Action",
     colDetails: "Change Details",
     exportReport: "Export Report (CSV)",
-    colFake: "Fake Orders",
-    markFake: "Flag Fake",
-    unmarkFake: "Unflag Fake",
-    fakeBadge: "🔴 Fake Order (Unreachable)",
+    colPendingOrders: "Pending",
   }
 } as const;

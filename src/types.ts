@@ -24,7 +24,6 @@ export interface Order {
   payment_method: 'cash' | 'transfer';
   is_paid: boolean;
   status: 'pending' | 'processing' | 'done' | 'cancelled';
-  is_fake: boolean;
   created_at: string;
 }
 

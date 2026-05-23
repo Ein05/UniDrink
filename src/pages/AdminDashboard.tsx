@@ -15,7 +15,6 @@ type DayReport = {
   unpaidDoneOrders: number; // FIX #5: theo dõi đơn done chưa thu tiền
   unpaidRevenue: number; // NEW: số tiền chưa thu
   pendingOrders: number;
-  fakeOrders: number;
 };
 
 const AdminDashboard = () => {
@@ -58,12 +57,9 @@ const AdminDashboard = () => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
       if (!acc[date]) {
-        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, unpaidRevenue: 0, pendingOrders: 0, fakeOrders: 0 };
+        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, unpaidRevenue: 0, pendingOrders: 0 };
       }
       acc[date].totalOrders += 1;
-      if (order.is_fake) {
-        acc[date].fakeOrders += 1;
-      }
       if (order.status === 'done') {
         acc[date].completedOrders += 1;
         if (order.is_paid) {
@@ -114,7 +110,6 @@ const AdminDashboard = () => {
           unpaidDoneOrders: 0,
           unpaidRevenue: 0,
           pendingOrders: 0,
-          fakeOrders: 0,
         });
       }
       current.setDate(current.getDate() + 1);
@@ -127,8 +122,8 @@ const AdminDashboard = () => {
     if (reportsByDate.length === 0) return;
 
     const headers = lang === 'EN'
-      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Unpaid Amount (VND)', 'Unapproved Orders', 'Pending Approval', 'Revenue (VND)']
-      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Tiền chưa thu (VND)', 'Đơn chưa duyệt', 'Đơn chờ duyệt', 'Doanh thu (VND)'];
+      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Unpaid Amount (VND)', 'Unapproved Orders', 'Revenue (VND)']
+      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Tiền chưa thu (VND)', 'Đơn chưa duyệt', 'Doanh thu (VND)'];
 
     const rows = reportsByDate.map(r => [
       r.date,
@@ -138,7 +133,6 @@ const AdminDashboard = () => {
       r.unpaidDoneOrders,
       r.unpaidRevenue,
       r.pendingOrders,
-      r.fakeOrders,
       r.revenue
     ]);
 
@@ -235,17 +229,6 @@ const AdminDashboard = () => {
     }
   };
 
-  // rollback cho toggleFake
-  const toggleFake = async (id: string, is_fake: boolean) => {
-    const previous = orders.find(o => o.id === id);
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, is_fake } : o));
-    const { error } = await (supabase as any).from('orders').update({ is_fake }).eq('id', id);
-    if (error) {
-      if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
-      alert(t.updateError + error.message);
-    }
-  };
-
   // FIX #3: rollback cho toggleProduct
   const toggleProduct = async (id: string, is_available: boolean) => {
     const previous = products.find(p => p.id === id);
@@ -332,7 +315,6 @@ const AdminDashboard = () => {
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colUnpaid}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">{t.colUnpaidRevenue}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colPendingOrders}</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colFake}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">{t.colRevenue}</th>
                   </tr>
                 </thead>
@@ -366,19 +348,12 @@ const AdminDashboard = () => {
                           <span className="text-brand-muted/40 font-bold">—</span>
                         )}
                       </td>
-                      <td className="py-5 px-4 text-center font-bold text-amber-600">
-                        {report.fakeOrders > 0 ? (
-                          <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full border border-amber-200">{report.fakeOrders}</span>
-                        ) : (
-                          <span className="text-brand-muted/40 font-bold">—</span>
-                        )}
-                      </td>
                       <td className="py-5 px-4 font-black text-brand-brown text-right whitespace-nowrap">{formatCurrency(report.revenue)}</td>
                     </tr>
                   ))}
                   {reportsByDate.length === 0 && (
                     <tr>
-                      <td colSpan={9} className="py-10 text-center text-brand-muted italic">{t.noReportData}</td>
+                      <td colSpan={8} className="py-10 text-center text-brand-muted italic">{t.noReportData}</td>
                     </tr>
                   )}
                 </tbody>
@@ -411,11 +386,6 @@ const AdminDashboard = () => {
                   {order.status === 'done' && !order.is_paid && (
                     <span className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-amber-200 animate-pulse">
                       {t.unpaidWarning}
-                    </span>
-                  )}
-                  {order.is_fake && (
-                    <span className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-amber-200 animate-pulse">
-                      {t.fakeBadge}
                     </span>
                   )}
                 </div>
@@ -506,17 +476,6 @@ const AdminDashboard = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => toggleFake(order.id, !order.is_fake)}
-                  className={cn(
-                    "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all grow md:grow-0 border",
-                    order.is_fake
-                      ? "bg-amber-50 border-amber-200 text-amber-600 hover:bg-amber-100"
-                      : "bg-white border-brand-beige text-brand-muted hover:bg-brand-cream"
-                  )}
-                >
-                  {order.is_fake ? t.unmarkFake : t.markFake}
-                </button>
-                <button
                   onClick={() => setEditingOrder(order)}
                   className="bg-white border border-brand-beige text-brand-muted px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-brown hover:text-white transition-all grow md:grow-0"
                 >
@@ -577,7 +536,6 @@ const AdminDashboard = () => {
                 total_price: parseFloat(formData.get('total_price') as string),
                 status: formData.get('status') as Order['status'],
                 is_paid: formData.get('is_paid') === 'true',
-                is_fake: formData.get('is_fake') === 'true',
               };
 
               const previous = orders.find(o => o.id === editingOrder.id);
@@ -655,7 +613,7 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.total} (VND)</label>
                   <input
@@ -688,17 +646,6 @@ const AdminDashboard = () => {
                   >
                     <option value="false">{t.unpaid}</option>
                     <option value="true">{t.paid}</option>
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.colFake}</label>
-                  <select
-                    name="is_fake"
-                    defaultValue={String(editingOrder.is_fake)}
-                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
-                  >
-                    <option value="false">{lang === 'EN' ? 'No' : 'Không'}</option>
-                    <option value="true">{lang === 'EN' ? 'Yes' : 'Có'}</option>
                   </select>
                 </div>
               </div>

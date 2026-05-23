@@ -26,8 +26,6 @@ const Home = () => {
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   useEffect(() => {
-    // FIX #9: reset products ngay để tránh flash data cũ khi sort thay đổi
-    setProducts([]);
     setLoading(true);
 
     async function fetchProducts() {
@@ -36,8 +34,7 @@ const Home = () => {
           .from('products')
           // FIX #4: bỏ filter is_available để hiển thị overlay "hết hàng" đúng nghiệp vụ
           .select('*')
-          .eq('is_deleted', false)
-          .order('price', { ascending: sortBy === 'price_asc' });
+          .eq('is_deleted', false);
 
         if (error) {
           setErrorStatus(error.message);
@@ -50,18 +47,21 @@ const Home = () => {
       }
     }
     fetchProducts();
-  }, [sortBy]);
+  }, []);
 
-  // Filter client-side (không sort lại, đã sort server-side)
-  const filteredProducts = useMemo(() =>
-    products.filter(p => {
+  // Filter and sort client-side instantly
+  const filteredProducts = useMemo(() => {
+    const filtered = products.filter(p => {
       const matchesCategory = activeCategory === 'all' || p.category === activeCategory;
       const name = lang === 'EN' ? (p.name_en || p.name) : p.name;
       const matchesSearch = name.toLowerCase().includes(search.toLowerCase());
       return matchesCategory && matchesSearch;
-    }),
-    [products, activeCategory, search, lang]
-  );
+    });
+
+    return [...filtered].sort((a, b) => {
+      return sortBy === 'price_asc' ? a.price - b.price : b.price - a.price;
+    });
+  }, [products, activeCategory, search, sortBy, lang]);
 
   if (loading) {
     return (

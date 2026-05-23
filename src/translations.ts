@@ -123,6 +123,7 @@ export const translations = {
     colDetails: "Chi tiết thay đổi",
     exportReport: "Xuất báo cáo (CSV)",
     colPendingOrders: "Chờ duyệt",
+    colUnpaidRevenue: "Tiền chưa thu",
   },
   EN: {
     brand: "UniCafe",
@@ -248,5 +249,6 @@ export const translations = {
     colDetails: "Change Details",
     exportReport: "Export Report (CSV)",
     colPendingOrders: "Pending",
+    colUnpaidRevenue: "Unpaid Amount",
   }
 } as const;

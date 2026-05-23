@@ -13,6 +13,7 @@ type DayReport = {
   cancelledOrders: number;
   revenue: number;
   unpaidDoneOrders: number; // FIX #5: theo dõi đơn done chưa thu tiền
+  unpaidRevenue: number; // NEW: số tiền chưa thu
   pendingOrders: number;
 };
 
@@ -56,7 +57,7 @@ const AdminDashboard = () => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
       if (!acc[date]) {
-        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, pendingOrders: 0 };
+        acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, unpaidRevenue: 0, pendingOrders: 0 };
       }
       acc[date].totalOrders += 1;
       if (order.status === 'done') {
@@ -65,6 +66,7 @@ const AdminDashboard = () => {
           acc[date].revenue += order.total_price;
         } else {
           acc[date].unpaidDoneOrders += 1; // FIX #5: đếm đơn done chưa thu tiền
+          acc[date].unpaidRevenue += order.total_price; // NEW: cộng dồn tiền chưa thu
         }
       }
       if (order.status === 'cancelled') {
@@ -106,6 +108,7 @@ const AdminDashboard = () => {
           cancelledOrders: 0,
           revenue: 0,
           unpaidDoneOrders: 0,
+          unpaidRevenue: 0,
           pendingOrders: 0,
         });
       }
@@ -119,8 +122,8 @@ const AdminDashboard = () => {
     if (reportsByDate.length === 0) return;
 
     const headers = lang === 'EN'
-      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Pending Orders', 'Revenue (VND)']
-      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Đơn chờ duyệt', 'Doanh thu (VND)'];
+      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Unpaid Amount (VND)', 'Pending Orders', 'Revenue (VND)']
+      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Tiền chưa thu (VND)', 'Đơn chờ duyệt', 'Doanh thu (VND)'];
 
     const rows = reportsByDate.map(r => [
       r.date,
@@ -128,6 +131,7 @@ const AdminDashboard = () => {
       r.completedOrders,
       r.cancelledOrders,
       r.unpaidDoneOrders,
+      r.unpaidRevenue,
       r.pendingOrders,
       r.revenue
     ]);
@@ -309,6 +313,7 @@ const AdminDashboard = () => {
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colCompleted}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colCancelled}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colUnpaid}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">{t.colUnpaidRevenue}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colPendingOrders}</th>
                     <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">{t.colRevenue}</th>
                   </tr>
@@ -329,6 +334,13 @@ const AdminDashboard = () => {
                           : <span className="text-brand-muted font-bold">—</span>
                         }
                       </td>
+                      <td className="py-5 px-4 text-right font-bold text-amber-600 whitespace-nowrap">
+                        {report.unpaidRevenue > 0 ? (
+                          <span>{formatCurrency(report.unpaidRevenue)}</span>
+                        ) : (
+                          <span className="text-brand-muted/40 font-bold">—</span>
+                        )}
+                      </td>
                       <td className="py-5 px-4 text-center font-bold text-amber-500">
                         {report.pendingOrders > 0 ? (
                           <span className="bg-amber-50 text-amber-700 text-xs px-2 py-1 rounded-full border border-amber-200">{report.pendingOrders}</span>
@@ -341,7 +353,7 @@ const AdminDashboard = () => {
                   ))}
                   {reportsByDate.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="py-10 text-center text-brand-muted italic">{t.noReportData}</td>
+                      <td colSpan={8} className="py-10 text-center text-brand-muted italic">{t.noReportData}</td>
                     </tr>
                   )}
                 </tbody>

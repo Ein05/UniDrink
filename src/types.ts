@@ -27,6 +27,15 @@ export interface Order {
   created_at: string;
 }
 
+export interface OrderLog {
+  id: string;
+  order_id: string;
+  action_type: 'create' | 'update_status' | 'update_payment' | 'edit_details';
+  changed_by?: string;
+  description: string;
+  created_at: string;
+}
+
 export interface OrderItem {
   id: string;
   order_id: string;

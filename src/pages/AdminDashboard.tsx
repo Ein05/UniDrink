@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { cn, formatCurrency } from '../lib/utils';
 import { supabase } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
-import type { Order, Product } from '../types';
+import type { Order, Product, OrderLog } from '../types';
 
 type DayReport = {
   date: string;
@@ -16,13 +16,39 @@ type DayReport = {
 };
 
 const AdminDashboard = () => {
-  const { t } = useApp();
+  const { t, lang } = useApp();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'reports'>('orders');
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [expandedLogs, setExpandedLogs] = useState<Record<string, OrderLog[]>>({});
+  const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
+
+  const fetchOrderLogs = async (orderId: string) => {
+    if (expandedLogs[orderId]) {
+      setExpandedLogs(prev => {
+        const copy = { ...prev };
+        delete copy[orderId];
+        return copy;
+      });
+      return;
+    }
+
+    setLoadingLogs(prev => ({ ...prev, [orderId]: true }));
+    const { data, error } = await supabase
+      .from('order_logs')
+      .select('*')
+      .eq('order_id', orderId)
+      .order('created_at', { ascending: true });
+
+    if (!error && data) {
+      setExpandedLogs(prev => ({ ...prev, [orderId]: data as OrderLog[] }));
+    }
+    setLoadingLogs(prev => ({ ...prev, [orderId]: false }));
+  };
 
   // Báo cáo theo ngày — memoized
   const reportsByDate = useMemo(() => {
@@ -109,7 +135,7 @@ const AdminDashboard = () => {
     const { error } = await (supabase as any).from('orders').update({ status }).eq('id', id);
     if (error) {
       if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
-      alert('Lỗi cập nhật: ' + error.message);
+      alert(t.updateError + error.message);
     }
   };
 
@@ -120,7 +146,7 @@ const AdminDashboard = () => {
     const { error } = await (supabase as any).from('orders').update({ is_paid }).eq('id', id);
     if (error) {
       if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
-      alert('Lỗi cập nhật: ' + error.message);
+      alert(t.updateError + error.message);
     }
   };
 
@@ -131,7 +157,7 @@ const AdminDashboard = () => {
     const { error } = await (supabase as any).from('products').update({ is_available }).eq('id', id);
     if (error) {
       if (previous) setProducts(prev => prev.map(p => p.id === id ? previous : p));
-      alert('Lỗi cập nhật sản phẩm: ' + error.message);
+      alert(t.productUpdateError + error.message);
     }
   };
 
@@ -152,7 +178,7 @@ const AdminDashboard = () => {
     <div className="space-y-12 pb-20">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-4">
-          <h2 className="text-4xl md:text-5xl font-serif text-brand-ink">Admin.</h2>
+          <h2 className="text-4xl md:text-5xl font-serif text-brand-ink">{t.adminTitle}</h2>
           <div className="flex gap-2">
             {(['orders', 'products', 'reports'] as const).map(tab => (
               <button
@@ -165,7 +191,7 @@ const AdminDashboard = () => {
                     : "bg-white text-brand-muted border-brand-beige"
                 )}
               >
-                {tab === 'orders' ? 'Orders' : tab === 'products' ? 'Inventory' : 'Báo cáo'}
+                {tab === 'orders' ? t.orders : tab === 'products' ? (lang === 'EN' ? 'Inventory' : 'Kho hàng') : (lang === 'EN' ? 'Reports' : 'Báo cáo')}
               </button>
             ))}
           </div>
@@ -173,14 +199,14 @@ const AdminDashboard = () => {
 
         <div className="flex gap-4">
           <div className="bg-brand-cream border border-brand-beige px-8 py-4 rounded-2xl flex flex-col justify-center min-w-[200px]">
-            <span className="text-[10px] uppercase font-black tracking-widest text-brand-muted leading-none mb-1">Doanh thu hôm nay</span>
+            <span className="text-[10px] uppercase font-black tracking-widest text-brand-muted leading-none mb-1">{t.todayRevenueLabel}</span>
             <span className="text-2xl font-serif font-black text-brand-brown">{formatCurrency(todayRevenue)}</span>
           </div>
           <button
             onClick={handleLogout}
             className="px-6 py-4 bg-brand-brown text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:scale-105 active:scale-95 transition-all shadow-lg shadow-brand-brown/10"
           >
-            Logout
+            {t.logoutButton}
           </button>
         </div>
       </div>
@@ -188,23 +214,25 @@ const AdminDashboard = () => {
       {activeTab === 'reports' ? (
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-brand-beige shadow-sm overflow-hidden">
-            <h3 className="text-2xl font-serif font-black text-brand-ink mb-8">Báo cáo doanh thu hằng ngày</h3>
+            <h3 className="text-2xl font-serif font-black text-brand-ink mb-8">{t.dailyReportTitle}</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[650px] border-collapse">
                 <thead>
                   <tr className="border-b border-brand-beige">
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted whitespace-nowrap">Ngày</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Tổng đơn</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Hoàn thành</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Đã hủy</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">Chưa thu</th>
-                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">Doanh thu</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted whitespace-nowrap">{t.colDate}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colTotalOrders}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colCompleted}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colCancelled}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-center whitespace-nowrap">{t.colUnpaid}</th>
+                    <th className="py-4 px-4 text-[10px] font-black uppercase tracking-widest text-brand-muted text-right whitespace-nowrap">{t.colRevenue}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {reportsByDate.map(report => (
                     <tr key={report.date} className="border-b border-brand-beige last:border-0 hover:bg-brand-cream/30 transition-colors">
-                      <td className="py-5 px-4 font-bold text-brand-ink whitespace-nowrap">{format(new Date(report.date), 'dd/MM/yyyy')}</td>
+                      <td className="py-5 px-4 font-bold text-brand-ink whitespace-nowrap">
+                        {new Date(report.date).toLocaleDateString(lang === 'EN' ? 'en-US' : 'vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                      </td>
                       <td className="py-5 px-4 font-bold text-center">{report.totalOrders}</td>
                       <td className="py-5 px-4 font-bold text-green-600 text-center">{report.completedOrders}</td>
                       <td className="py-5 px-4 font-bold text-red-500 text-center">{report.cancelledOrders}</td>
@@ -220,7 +248,7 @@ const AdminDashboard = () => {
                   ))}
                   {reportsByDate.length === 0 && (
                     <tr>
-                      <td colSpan={6} className="py-10 text-center text-brand-muted italic">Chưa có dữ liệu báo cáo</td>
+                      <td colSpan={6} className="py-10 text-center text-brand-muted italic">{t.noReportData}</td>
                     </tr>
                   )}
                 </tbody>
@@ -252,33 +280,61 @@ const AdminDashboard = () => {
                   {/* FIX #5: cảnh báo đơn done nhưng chưa thu tiền */}
                   {order.status === 'done' && !order.is_paid && (
                     <span className="bg-amber-50 text-amber-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-amber-200 animate-pulse">
-                      ⚠ Chưa thu tiền
+                      {t.unpaidWarning}
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-sm">
                   <div className="space-y-1">
-                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">Khách hàng</p>
+                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.customerLabel}</p>
                     <p className="font-bold text-brand-ink">{order.customer_name} • {order.customer_phone}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">Địa chỉ giao hàng</p>
+                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.deliveryAddress}</p>
                     <p className="font-bold text-brand-ink">{order.address}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">Ghi chú</p>
-                    <p className="italic font-serif text-brand-muted">{order.note || 'Không có ghi chú'}</p>
+                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.noteLabel}</p>
+                    <p className="italic font-serif text-brand-muted">{order.note || t.noNote}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">Thanh toán</p>
-                    <p className="font-black text-brand-brown">{formatCurrency(order.total_price)} ({order.payment_method})</p>
+                    <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.paymentInfo}</p>
+                    <p className="font-black text-brand-brown">{formatCurrency(order.total_price)} ({order.payment_method === 'cash' ? t.cash : t.transfer})</p>
                   </div>
                 </div>
 
                 <p className="text-[10px] text-brand-muted font-bold uppercase tracking-[0.2em] opacity-40">
-                  {format(new Date(order.created_at), 'HH:mm • dd MMMM, yyyy')}
+                  {new Date(order.created_at).toLocaleString(lang === 'EN' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: 'long', year: 'numeric' })}
                 </p>
+
+                <div className="pt-2">
+                  <button
+                    onClick={() => fetchOrderLogs(order.id)}
+                    className="text-xs text-brand-muted hover:text-brand-brown font-black uppercase tracking-wider flex items-center gap-1 underline"
+                  >
+                    {loadingLogs[order.id] ? 'Loading...' : expandedLogs[order.id] ? (lang === 'EN' ? 'Hide History' : 'Ẩn lịch sử') : (lang === 'EN' ? 'View History' : 'Xem lịch sử')}
+                  </button>
+                  
+                  {expandedLogs[order.id] && (
+                    <div className="mt-4 pt-4 border-t border-brand-beige space-y-3 pl-4 border-l-2 border-brand-caramel/30">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-brand-muted mb-2">{t.orderHistory}</p>
+                      {expandedLogs[order.id].length === 0 ? (
+                        <p className="text-xs text-brand-muted italic">{t.historyEmpty}</p>
+                      ) : (
+                        expandedLogs[order.id].map(log => (
+                          <div key={log.id} className="relative space-y-0.5">
+                            <div className="absolute -left-[21px] top-1.5 w-2 h-2 rounded-full bg-brand-caramel border border-white" />
+                            <p className="text-xs font-bold text-brand-ink">{log.description}</p>
+                            <p className="text-[9px] text-brand-muted font-mono">
+                              {new Date(log.created_at).toLocaleString(lang === 'EN' ? 'en-US' : 'vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: '2-digit' })}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex flex-wrap md:flex-col gap-3 justify-center md:items-end md:min-w-[160px]">
@@ -288,13 +344,13 @@ const AdminDashboard = () => {
                       onClick={() => updateStatus(order.id, 'processing')}
                       className="bg-brand-caramel text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-brown transition-all grow md:grow-0"
                     >
-                      Processing
+                      {lang === 'EN' ? 'Processing' : 'Đang làm'}
                     </button>
                     <button
                       onClick={() => updateStatus(order.id, 'done')}
                       className="bg-brand-brown text-white px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-all shadow-lg shadow-brand-brown/20 grow md:grow-0"
                     >
-                      Mark Done
+                      {lang === 'EN' ? 'Mark Done' : 'Hoàn thành'}
                     </button>
                   </>
                 )}
@@ -303,7 +359,7 @@ const AdminDashboard = () => {
                     onClick={() => togglePaid(order.id, true)}
                     className="bg-white border-2 border-brand-brown text-brand-brown px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-brown hover:text-white transition-all grow md:grow-0"
                   >
-                    Confirm Paid
+                    {lang === 'EN' ? 'Confirm Paid' : 'Đã thu tiền'}
                   </button>
                 )}
                 {order.status === 'pending' && (
@@ -311,14 +367,20 @@ const AdminDashboard = () => {
                     onClick={() => updateStatus(order.id, 'cancelled')}
                     className="bg-transparent text-red-400 hover:text-red-600 px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors grow md:grow-0 underline underline-offset-4"
                   >
-                    Cancel
+                    {lang === 'EN' ? 'Cancel' : 'Hủy'}
                   </button>
                 )}
+                <button
+                  onClick={() => setEditingOrder(order)}
+                  className="bg-white border border-brand-beige text-brand-muted px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-brown hover:text-white transition-all grow md:grow-0"
+                >
+                  {t.editButton}
+                </button>
               </div>
             </div>
           ))}
           {orders.length === 0 && (
-            <div className="py-20 text-center text-brand-muted italic">Chưa có đơn hàng nào</div>
+            <div className="py-20 text-center text-brand-muted italic">{t.noOrders}</div>
           )}
         </div>
       ) : (
@@ -327,13 +389,13 @@ const AdminDashboard = () => {
             <div key={product.id} className="bg-white p-6 rounded-[2rem] border border-brand-beige flex items-center gap-4">
               <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0">
                 {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-2xl" />
+                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
                 ) : (
                   <span>{product.emoji || '☕'}</span>
                 )}
               </div>
               <div className="grow">
-                <h3 className="font-bold text-brand-ink">{product.name}</h3>
+                <h3 className="font-bold text-brand-ink">{lang === 'EN' ? product.name_en || product.name : product.name}</h3>
                 <p className="text-brand-brown text-sm font-black">{formatCurrency(product.price)}</p>
               </div>
               <button
@@ -343,10 +405,163 @@ const AdminDashboard = () => {
                   product.is_available ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-red-100 text-red-700 hover:bg-red-200"
                 )}
               >
-                {product.is_available ? 'Còn hàng' : 'Hết hàng'}
+                {product.is_available ? t.availableLabel : t.unavailableLabel}
               </button>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {editingOrder && (
+        <div className="fixed inset-0 bg-brand-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-brand-cream border border-brand-beige rounded-[2.5rem] max-w-lg w-full p-6 md:p-10 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+            <h3 className="text-2xl font-serif font-black text-brand-ink">{t.editOrder} #{editingOrder.order_code}</h3>
+            
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const form = e.currentTarget;
+              const formData = new FormData(form);
+              
+              const updatedFields = {
+                customer_name: formData.get('customer_name') as string,
+                customer_phone: formData.get('customer_phone') as string,
+                address: formData.get('address') as string,
+                note: formData.get('note') as string,
+                total_price: parseFloat(formData.get('total_price') as string),
+                status: formData.get('status') as Order['status'],
+                is_paid: formData.get('is_paid') === 'true',
+              };
+
+              const previous = orders.find(o => o.id === editingOrder.id);
+              
+              // Optimistic update
+              setOrders(prev => prev.map(o => o.id === editingOrder.id ? { ...o, ...updatedFields } : o));
+              setEditingOrder(null);
+
+              const { error } = await (supabase as any)
+                .from('orders')
+                .update(updatedFields)
+                .eq('id', editingOrder.id);
+
+              if (error) {
+                if (previous) setOrders(prev => prev.map(o => o.id === editingOrder.id ? previous : o));
+                alert(t.updateError + error.message);
+              } else {
+                // If the logs are currently expanded for this order, refresh them!
+                if (expandedLogs[editingOrder.id]) {
+                  setTimeout(() => {
+                    supabase
+                      .from('order_logs')
+                      .select('*')
+                      .eq('order_id', editingOrder.id)
+                      .order('created_at', { ascending: true })
+                      .then(({ data }) => {
+                        if (data) {
+                          setExpandedLogs(prev => ({ ...prev, [editingOrder.id]: data as OrderLog[] }));
+                        }
+                      });
+                  }, 500);
+                }
+              }
+            }} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.name}</label>
+                  <input
+                    required
+                    type="text"
+                    name="customer_name"
+                    defaultValue={editingOrder.customer_name}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.phone}</label>
+                  <input
+                    required
+                    type="text"
+                    name="customer_phone"
+                    defaultValue={editingOrder.customer_phone}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.address}</label>
+                <input
+                  required
+                  type="text"
+                  name="address"
+                  defaultValue={editingOrder.address}
+                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.noteLabel}</label>
+                <textarea
+                  name="note"
+                  defaultValue={editingOrder.note || ''}
+                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown min-h-[80px]"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.total} (VND)</label>
+                  <input
+                    required
+                    type="number"
+                    name="total_price"
+                    defaultValue={editingOrder.total_price}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{lang === 'EN' ? 'Status' : 'Trạng thái'}</label>
+                  <select
+                    name="status"
+                    defaultValue={editingOrder.status}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  >
+                    <option value="pending">{t.statusPending}</option>
+                    <option value="processing">{t.statusProcessing}</option>
+                    <option value="done">{t.statusDone}</option>
+                    <option value="cancelled">{t.statusCancelled}</option>
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{lang === 'EN' ? 'Payment' : 'Thanh toán'}</label>
+                  <select
+                    name="is_paid"
+                    defaultValue={String(editingOrder.is_paid)}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  >
+                    <option value="false">{t.unpaid}</option>
+                    <option value="true">{t.paid}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingOrder(null)}
+                  className="px-6 py-3 bg-white border border-brand-beige text-brand-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-cream transition-colors"
+                >
+                  {t.cancelButton}
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10"
+                >
+                  {t.saveButton}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
     </div>

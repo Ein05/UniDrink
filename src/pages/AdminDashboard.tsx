@@ -50,7 +50,7 @@ const AdminDashboard = () => {
     setLoadingLogs(prev => ({ ...prev, [orderId]: false }));
   };
 
-  // Báo cáo theo ngày — memoized
+  // Báo cáo theo ngày — memoized và tự động điền các ngày trống
   const reportsByDate = useMemo(() => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
@@ -72,8 +72,77 @@ const AdminDashboard = () => {
       return acc;
     }, {});
 
-    return (Object.values(grouped) as DayReport[]).sort((a, b) => b.date.localeCompare(a.date));
+    const dates = Object.keys(grouped);
+    if (dates.length === 0) return [];
+
+    // Tìm ngày có đơn hàng sớm nhất và ngày muộn nhất (hôm nay)
+    const sortedDates = [...dates].sort();
+    const minDateStr = sortedDates[0];
+    const maxDateStr = format(new Date(), 'yyyy-MM-dd');
+
+    const minDateParts = minDateStr.split('-').map(Number);
+    const maxDateParts = maxDateStr.split('-').map(Number);
+
+    // Tạo đối tượng Date ở múi giờ địa phương vào lúc giữa trưa để tránh các vấn đề về DST
+    const start = new Date(minDateParts[0], minDateParts[1] - 1, minDateParts[2], 12, 0, 0);
+    const end = new Date(maxDateParts[0], maxDateParts[1] - 1, maxDateParts[2], 12, 0, 0);
+
+    const filledReports: DayReport[] = [];
+    let current = new Date(start);
+
+    while (current <= end) {
+      const dateStr = format(current, 'yyyy-MM-dd');
+      if (grouped[dateStr]) {
+        filledReports.push(grouped[dateStr]);
+      } else {
+        filledReports.push({
+          date: dateStr,
+          totalOrders: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
+          revenue: 0,
+          unpaidDoneOrders: 0,
+        });
+      }
+      current.setDate(current.getDate() + 1);
+    }
+
+    return filledReports.sort((a, b) => b.date.localeCompare(a.date));
   }, [orders]);
+
+  const handleExportCSV = () => {
+    if (reportsByDate.length === 0) return;
+
+    const headers = lang === 'EN'
+      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Revenue (VND)']
+      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Doanh thu (VND)'];
+
+    const rows = reportsByDate.map(r => [
+      r.date,
+      r.totalOrders,
+      r.completedOrders,
+      r.cancelledOrders,
+      r.unpaidDoneOrders,
+      r.revenue
+    ]);
+
+    const csvContent = "\uFEFF" + [
+      headers.join(','),
+      ...rows.map(e => e.join(','))
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    link.setAttribute("download", `UniDrink_Revenue_Report_${todayStr}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Doanh thu hôm nay — memoized
   const todayRevenue = useMemo(() => {
@@ -214,7 +283,17 @@ const AdminDashboard = () => {
       {activeTab === 'reports' ? (
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-brand-beige shadow-sm overflow-hidden">
-            <h3 className="text-2xl font-serif font-black text-brand-ink mb-8">{t.dailyReportTitle}</h3>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
+              <h3 className="text-2xl font-serif font-black text-brand-ink leading-none">{t.dailyReportTitle}</h3>
+              {reportsByDate.length > 0 && (
+                <button
+                  onClick={handleExportCSV}
+                  className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10 self-start sm:self-auto"
+                >
+                  {t.exportReport}
+                </button>
+              )}
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left min-w-[650px] border-collapse">
                 <thead>

@@ -121,6 +121,7 @@ export const translations = {
     historyEmpty: "Chưa có lịch sử thay đổi nào được ghi lại.",
     colAction: "Thao tác",
     colDetails: "Chi tiết thay đổi",
+    exportReport: "Xuất báo cáo (CSV)",
   },
   EN: {
     brand: "UniCafe",
@@ -244,5 +245,6 @@ export const translations = {
     historyEmpty: "No change history recorded yet.",
     colAction: "Action",
     colDetails: "Change Details",
+    exportReport: "Export Report (CSV)",
   }
 } as const;

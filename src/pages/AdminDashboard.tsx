@@ -30,6 +30,7 @@ const AdminDashboard = () => {
   const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [hideFake, setHideFake] = useState(true); // Mặc định ẩn đơn ảo để tránh rác dashboard
 
   const fetchOrderLogs = async (orderId: string) => {
     if (expandedLogs[orderId]) {
@@ -57,6 +58,7 @@ const AdminDashboard = () => {
   // Báo cáo theo ngày — memoized và tự động điền các ngày trống
   const reportsByDate = useMemo(() => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
+      if (order.is_fake) return acc; // LOẠI BỎ ĐƠN ẢO KHỎI BÁO CÁO DOANH THU
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
       if (!acc[date]) {
         acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, unpaidRevenue: 0, pendingOrders: 0 };
@@ -160,9 +162,14 @@ const AdminDashboard = () => {
   const todayRevenue = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return orders
-      .filter(o => o.status === 'done' && o.is_paid && format(new Date(o.created_at), 'yyyy-MM-dd') === today)
+      .filter(o => !o.is_fake && o.status === 'done' && o.is_paid && format(new Date(o.created_at), 'yyyy-MM-dd') === today)
       .reduce((acc, o) => acc + o.total_price, 0);
   }, [orders]);
+
+  // Lọc đơn hàng dựa theo toggle ẩn đơn ảo
+  const filteredOrders = useMemo(() => {
+    return orders.filter(order => !hideFake || !order.is_fake);
+  }, [orders, hideFake]);
 
   useEffect(() => {
     // FIX #2: khai báo channel biến ngoài để cleanup đúng
@@ -396,8 +403,29 @@ const AdminDashboard = () => {
           </div>
         </div>
       ) : activeTab === 'orders' ? (
-        <div className="grid grid-cols-1 gap-6">
-          {orders.map(order => (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-white border border-brand-beige rounded-[1.5rem] px-6 py-4">
+            <span className="text-xs font-black text-brand-muted uppercase tracking-wider">
+              {lang === 'EN' ? 'Filter Orders' : 'Bộ lọc đơn'}
+            </span>
+            <button
+              onClick={() => setHideFake(!hideFake)}
+              className={cn(
+                "px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider border flex items-center gap-2",
+                hideFake
+                  ? "bg-purple-50 text-purple-700 border-purple-200"
+                  : "bg-white text-brand-muted border-brand-beige hover:border-purple-200 hover:text-purple-700"
+              )}
+            >
+              <span className={cn("w-2 h-2 rounded-full", hideFake ? "bg-purple-500 animate-pulse" : "bg-brand-muted/40")} />
+              {hideFake
+                ? (lang === 'EN' ? 'Hidden Fake Orders' : 'Đang ẩn đơn ảo')
+                : (lang === 'EN' ? 'Showing All' : 'Đang hiện tất cả')}
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6">
+            {filteredOrders.map(order => (
             <div key={order.id} className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 border border-brand-beige flex flex-col md:flex-row gap-5 md:gap-8 hover:shadow-xl transition-all group">
               <div className="space-y-4 grow">
                 <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -535,9 +563,10 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
-          {orders.length === 0 && (
+          {filteredOrders.length === 0 && (
             <div className="py-20 text-center text-brand-muted italic">{t.noOrders}</div>
           )}
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

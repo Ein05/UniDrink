@@ -30,6 +30,16 @@ const Checkout = () => {
     e.preventDefault();
     setErrorMsg(null);
 
+    // Rate limit cooldown (60 seconds)
+    const lastOrderTime = localStorage.getItem('last_order_time');
+    if (lastOrderTime) {
+      const diff = Date.now() - parseInt(lastOrderTime, 10);
+      if (diff < 60000) {
+        setErrorMsg(t.orderCooldown);
+        return;
+      }
+    }
+
     // FIX #6: validate số điện thoại VN (10 số, bắt đầu bằng 0)
     const normalizedPhone = normalizePhone(formData.phone);
     if (!/^0\d{9}$/.test(normalizedPhone)) {
@@ -49,6 +59,9 @@ const Checkout = () => {
       });
 
       if (error) throw error;
+
+      // Save order time to prevent spam
+      localStorage.setItem('last_order_time', Date.now().toString());
 
       setOrderTotal(cart.total);
       setSuccessCode(data as string);

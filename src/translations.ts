@@ -139,6 +139,7 @@ export const translations = {
     productDescEn: "Mô tả (Tiếng Anh)",
     productImageUrl: "Đường dẫn ảnh (URL)",
     productSaveSuccess: "Cập nhật sản phẩm thành công!",
+    orderCooldown: "Vui lòng đợi 1 phút trước khi đặt đơn hàng tiếp theo.",
   },
   EN: {
     brand: "UniDrink",
@@ -280,5 +281,6 @@ export const translations = {
     productDescEn: "Description (English)",
     productImageUrl: "Image URL",
     productSaveSuccess: "Product updated successfully!",
+    orderCooldown: "Please wait 1 minute before placing another order.",
   }
 } as const;

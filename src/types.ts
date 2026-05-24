@@ -25,6 +25,7 @@ export interface Order {
   is_paid: boolean;
   status: 'pending' | 'processing' | 'done' | 'cancelled';
   is_fake: boolean;
+  customer_email?: string;
   created_at: string;
 }
 

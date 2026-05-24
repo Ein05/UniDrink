@@ -20,6 +20,39 @@ const Checkout = () => {
     note: '',
     paymentMethod: 'cash' as 'cash' | 'transfer',
   });
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setErrorMsg(null);
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin + '/checkout',
+      }
+    });
+    if (error) {
+      setErrorMsg(error.message);
+      setLoading(false);
+    }
+  };
 
   // FIX #1: dùng Navigate thay vì render <Home /> trong layout sai
   if (cart.items.length === 0 && !successCode) {
@@ -55,6 +88,7 @@ const Checkout = () => {
         p_address: formData.address.trim(),
         p_note: formData.note.trim(),
         p_payment_method: formData.paymentMethod,
+        p_customer_email: session?.user?.email || '',
         p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
       });
 
@@ -117,6 +151,57 @@ const Checkout = () => {
     );
   }
 
+  if (authLoading) {
+    return (
+      <div className="text-center py-20 text-[10px] font-black uppercase tracking-[0.3em] text-brand-muted animate-pulse">
+        {lang === 'EN' ? 'Verifying Session...' : 'Đang xác thực phiên...'}
+      </div>
+    );
+  }
+
+  if (!session) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-md mx-auto text-center space-y-8 pt-12"
+      >
+        <div className="bg-brand-cream border border-brand-beige rounded-[2.5rem] p-10 shadow-xl space-y-6">
+          <div className="w-16 h-16 bg-white border border-brand-beige rounded-2xl flex items-center justify-center mx-auto text-3xl shadow-sm">
+            🎓
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-serif font-black text-brand-ink">
+              {lang === 'EN' ? 'Phenikaa Campus Auth' : 'Xác thực sinh viên'}
+            </h2>
+            <p className="text-xs text-brand-muted font-medium leading-relaxed font-sans px-4">
+              {t.googleLoginRequired}
+            </p>
+          </div>
+          <button
+            onClick={handleGoogleSignIn}
+            disabled={loading}
+            className="w-full py-4 bg-white border border-brand-beige hover:border-brand-brown text-brand-ink rounded-2xl font-black uppercase tracking-wider text-xs shadow-md transition-all flex items-center justify-center gap-3"
+          >
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-brand-muted/30 border-t-brand-brown rounded-full animate-spin" />
+            ) : (
+              <>
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                  <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                  <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05" />
+                  <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335" />
+                </svg>
+                {t.signInWithGoogle}
+              </>
+            )}
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -133,6 +218,15 @@ const Checkout = () => {
         )}
 
         <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-2">
+            <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.emailLabel}</label>
+            <input
+              disabled
+              className="w-full bg-[#FAF9F5] border border-brand-beige rounded-2xl px-6 py-4 outline-none font-medium text-brand-muted cursor-not-allowed opacity-80"
+              value={session?.user?.email || ''}
+            />
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.name}</label>

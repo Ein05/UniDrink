@@ -31,6 +31,7 @@ const AdminDashboard = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [hideFake, setHideFake] = useState(true); // Mặc định ẩn đơn ảo để tránh rác dashboard
+  const [blacklistedEmails, setBlacklistedEmails] = useState<string[]>([]);
 
   const fetchOrderLogs = async (orderId: string) => {
     if (expandedLogs[orderId]) {
@@ -193,6 +194,13 @@ const AdminDashboard = () => {
       setLoading(false);
     };
 
+    const fetchBlacklistedEmails = async () => {
+      const { data, error } = await (supabase as any)
+        .from('blacklisted_emails')
+        .select('email');
+      if (!error && data) setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
+    };
+
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -201,7 +209,7 @@ const AdminDashboard = () => {
       }
 
       setIsAuthenticated(true);
-      await Promise.all([fetchOrders(), fetchProducts()]);
+      await Promise.all([fetchOrders(), fetchProducts(), fetchBlacklistedEmails()]);
 
       // FIX #2: chỉ subscribe realtime SAU KHI xác nhận auth
       channel = supabase
@@ -258,6 +266,40 @@ const AdminDashboard = () => {
     if (error) {
       if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
       alert(t.updateError + error.message);
+    }
+  };
+
+  // Thêm/Xóa email khỏi blacklist (chặn spam)
+  const toggleEmailBlacklist = async (email: string) => {
+    if (!email) return;
+    const cleanEmail = email.toLowerCase().trim();
+    const isBlacklisted = blacklistedEmails.includes(cleanEmail);
+    const previous = [...blacklistedEmails];
+
+    // Optimistic Update
+    if (isBlacklisted) {
+      setBlacklistedEmails(prev => prev.filter(e => e !== cleanEmail));
+    } else {
+      setBlacklistedEmails(prev => [...prev, cleanEmail]);
+    }
+
+    if (isBlacklisted) {
+      const { error } = await (supabase as any)
+        .from('blacklisted_emails')
+        .delete()
+        .eq('email', cleanEmail);
+      if (error) {
+        setBlacklistedEmails(previous);
+        alert((lang === 'EN' ? 'Failed to unblock email: ' : 'Lỗi khi bỏ chặn email: ') + error.message);
+      }
+    } else {
+      const { error } = await (supabase as any)
+        .from('blacklisted_emails')
+        .insert({ email: cleanEmail, reason: 'Spam orders' });
+      if (error) {
+        setBlacklistedEmails(previous);
+        alert((lang === 'EN' ? 'Failed to block email: ' : 'Lỗi khi chặn email: ') + error.message);
+      }
     }
   };
 
@@ -456,12 +498,26 @@ const AdminDashboard = () => {
                       {t.fakeWarning}
                     </span>
                   )}
+                  {/* Blocked email badge */}
+                  {order.customer_email && blacklistedEmails.includes(order.customer_email.toLowerCase()) && (
+                    <span className="bg-red-50 text-red-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-red-200">
+                      {lang === 'EN' ? 'Blocked Email' : 'Email bị chặn'}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-sm">
                   <div className="space-y-1">
                     <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.customerLabel}</p>
                     <p className="font-bold text-brand-ink">{order.customer_name} • {order.customer_phone}</p>
+                    {order.customer_email && (
+                      <p className="text-xs text-brand-muted font-bold truncate">
+                        Email: {order.customer_email}
+                        {blacklistedEmails.includes(order.customer_email.toLowerCase()) && (
+                          <span className="ml-2 text-red-500 font-black">({lang === 'EN' ? 'Blocked' : 'Đang chặn'})</span>
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <p className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.deliveryAddress}</p>
@@ -560,6 +616,19 @@ const AdminDashboard = () => {
                 >
                   {order.is_fake ? t.unmarkFake : t.markFake}
                 </button>
+                {order.customer_email && (
+                  <button
+                    onClick={() => toggleEmailBlacklist(order.customer_email!)}
+                    className={cn(
+                      "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all grow md:grow-0",
+                      blacklistedEmails.includes(order.customer_email.toLowerCase())
+                        ? "bg-red-100 text-red-700 hover:bg-red-200"
+                        : "bg-white border border-brand-beige text-brand-muted hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+                    )}
+                  >
+                    {blacklistedEmails.includes(order.customer_email.toLowerCase()) ? t.unblockEmail : t.blockEmail}
+                  </button>
+                )}
               </div>
             </div>
           ))}

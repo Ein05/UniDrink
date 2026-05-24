@@ -25,14 +25,14 @@ export function formatCurrency(amount: number, currency: 'VND' | 'USD' = 'VND', 
 export function normalizePhone(phone: string) {
   let digits = phone.replace(/\D/g, '');
 
-  if (digits.startsWith('84')) {
+  // Chuẩn hoá +84 / 084 → 0 (phải check 084 TRƯỚC 84)
+  if (digits.startsWith('084')) {
+    digits = '0' + digits.slice(3);
+  } else if (digits.startsWith('84')) {
     digits = '0' + digits.slice(2);
   }
 
-  if (digits.startsWith('084')) {
-    digits = '0' + digits.slice(3);
-  }
-
+  // Xóa các số 0 thừa ở đầu (ngoại trừ số 0 đầu tiên bắt buộc)
   digits = digits.replace(/^0+/, '0');
 
   return digits;

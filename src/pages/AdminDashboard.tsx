@@ -260,7 +260,7 @@ const AdminDashboard = () => {
   if (!isAuthenticated || loading) {
     return (
       <div className="text-center py-20 text-[10px] font-black uppercase tracking-[0.3em] text-brand-muted animate-pulse">
-        Loading Portal...
+        {lang === 'EN' ? 'Loading Portal...' : 'Đang tải...'}
       </div>
     );
   }

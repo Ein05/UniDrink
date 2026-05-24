@@ -1,4 +1,4 @@
-import React, { useState, type FormEvent } from 'react';
+import React, { useState, useRef, type FormEvent } from 'react';
 import { Link, Navigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { CheckCircle } from 'lucide-react';
@@ -12,6 +12,7 @@ const Checkout = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successCode, setSuccessCode] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState(0);
+  const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -118,7 +119,7 @@ const Checkout = () => {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.name}</label>
@@ -241,7 +242,7 @@ const Checkout = () => {
           </div>
 
           <button
-            onClick={handleSubmit}
+            onClick={() => formRef.current?.requestSubmit()}
             disabled={loading}
             className="w-full py-5 bg-brand-brown text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-brand-brown/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >

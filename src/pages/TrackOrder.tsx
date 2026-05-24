@@ -158,7 +158,7 @@ const TrackOrder = () => {
           <div className="border-t border-brand-beige pt-6 space-y-4">
             <h4 className="text-xs font-black uppercase tracking-widest text-brand-muted">{t.orderHistory}</h4>
             {loadingLogs ? (
-              <p className="text-xs text-brand-muted animate-pulse">Loading history...</p>
+              <p className="text-xs text-brand-muted animate-pulse">{lang === 'EN' ? 'Loading history...' : 'Đang tải lịch sử...'}</p>
             ) : logs.length === 0 ? (
               <p className="text-xs text-brand-muted italic">{t.historyEmpty}</p>
             ) : (

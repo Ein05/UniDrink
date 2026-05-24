@@ -18,9 +18,9 @@ const CartPage = () => {
     >
       <div className="flex-1 space-y-8">
         <div className="flex items-center gap-4">
-          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">Giỏ hàng.</h2>
+          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.cartTitle}</h2>
           <span className="text-xs text-brand-muted uppercase tracking-[0.2em] font-bold">
-            {cart.items.length} Món
+            {t.cartItemsCount.replace('{count}', String(cart.items.length))}
           </span>
         </div>
 
@@ -77,34 +77,34 @@ const CartPage = () => {
       {cart.items.length > 0 && (
         <aside className="w-full lg:w-96 space-y-6">
           <div className="bg-white rounded-[2.5rem] border border-brand-beige p-8 shadow-xl flex flex-col h-fit sticky top-32">
-            <h3 className="font-serif text-2xl font-bold mb-8 text-brand-ink">Tổng đơn hàng</h3>
+            <h3 className="font-serif text-2xl font-bold mb-8 text-brand-ink">{t.cartSummary}</h3>
 
             <div className="space-y-4 mb-8">
               <div className="flex justify-between items-center text-sm">
-                <span className="text-brand-muted font-medium">Tạm tính</span>
+                <span className="text-brand-muted font-medium">{t.cartSubtotal}</span>
                 <span className="font-black text-brand-ink">{formatCurrency(cart.total)}</span>
               </div>
               <div className="flex justify-between items-center text-sm">
-                <span className="text-brand-muted font-medium">Phí giao hàng</span>
-                <span className="font-black text-green-600 uppercase tracking-widest text-[10px]">Freesize</span>
+                <span className="text-brand-muted font-medium">{t.cartShipping}</span>
+                <span className="font-black text-green-600 uppercase tracking-widest text-[10px]">{t.shippingFree}</span>
               </div>
               <div className="h-px bg-brand-beige my-4"></div>
               <div className="flex justify-between items-baseline">
-                <span className="text-brand-muted uppercase font-black text-xs tracking-widest">Tổng cộng</span>
+                <span className="text-brand-muted uppercase font-black text-xs tracking-widest">{t.total}</span>
                 <span className="text-3xl font-serif font-black text-brand-brown">{formatCurrency(cart.total)}</span>
               </div>
             </div>
 
             <div className="bg-brand-cream p-4 rounded-2xl mb-8 border border-brand-beige">
-              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-2">Miễn phí vận chuyển</p>
-              <p className="text-xs text-brand-ink leading-relaxed">Áp dụng cho mọi đơn hàng đặt trực tiếp qua UniDrink Portal.</p>
+              <p className="text-[10px] text-brand-muted uppercase font-black tracking-widest mb-2">{t.cartFreeShipping}</p>
+              <p className="text-xs text-brand-ink leading-relaxed">{t.cartFreeShippingDesc}</p>
             </div>
 
             <button
               onClick={() => navigate('/checkout')}
               className="w-full py-5 bg-brand-brown text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-brand-brown/20 hover:scale-[1.02] active:scale-95 transition-all"
             >
-              THANH TOÁN • {formatCurrency(cart.total)}
+              {t.cartCheckoutButton} • {formatCurrency(cart.total)}
             </button>
           </div>
         </aside>

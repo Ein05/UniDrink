@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { Plus, CheckCircle } from 'lucide-react';
 import { cn, formatCurrency } from '../lib/utils';
@@ -23,16 +23,29 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   }, [isAdded]);
 
   const handleAdd = () => {
-    cart.addToCart(product);
-    // chỉ set isAdded nếu chưa ở max
+    // Đọc số lượng hiện tại trước khi gọi cập nhật bất đồng bộ
     const currentQty = cart.items.find(i => i.id === product.id)?.quantity ?? 0;
+    
+    // Gọi hàm thêm vào giỏ hàng
+    cart.addToCart(product);
+    
+    // Chỉ kích hoạt trạng thái "Đã thêm" nếu chưa đạt tối đa số lượng
     if (currentQty < cart.MAX_QUANTITY) {
       setIsAdded(true);
     }
   };
 
-  const name = lang === 'EN' ? product.name_en || product.name : product.name;
-  const desc = lang === 'EN' ? product.description_en || product.description : product.description;
+  const name = useMemo(() => {
+    return lang === 'EN' ? product.name_en || product.name : product.name;
+  }, [lang, product.name, product.name_en]);
+
+  const desc = useMemo(() => {
+    return lang === 'EN' ? product.description_en || product.description : product.description;
+  }, [lang, product.description, product.description_en]);
+
+  const limitText = useMemo(() => {
+    return t.maxLimitReached.replace('{qty}', String(cart.MAX_QUANTITY));
+  }, [t.maxLimitReached, cart.MAX_QUANTITY]);
 
   return (
     <motion.div
@@ -42,7 +55,12 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
     >
       <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0">
         {product.image_url ? (
-          <img src={product.image_url} alt={name} className="w-full h-full object-cover rounded-2xl" />
+          <img 
+            src={product.image_url} 
+            alt={name} 
+            className="w-full h-full object-cover rounded-2xl" 
+            loading="lazy"
+          />
         ) : (
           <span>{product.emoji || '☕'}</span>
         )}
@@ -63,7 +81,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         {/* FIX #7: thông báo đạt giới hạn tối đa */}
         {isAtMax && (
           <p className="text-[10px] text-amber-600 font-black uppercase tracking-wider mt-1">
-            Tối đa {cart.MAX_QUANTITY} món/loại
+            {limitText}
           </p>
         )}
       </div>
@@ -71,6 +89,7 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       <button
         onClick={handleAdd}
         disabled={!product.is_available}
+        aria-label={isAdded ? (lang === 'EN' ? "Added to cart" : "Đã thêm vào giỏ") : t.addToCart}
         className={cn(
           "absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all",
           isAtMax
@@ -92,4 +111,4 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   );
 };
 
-export default ProductCard;
+export default React.memo(ProductCard);

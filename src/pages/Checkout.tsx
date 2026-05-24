@@ -32,7 +32,7 @@ const Checkout = () => {
     // FIX #6: validate số điện thoại VN (10 số, bắt đầu bằng 0)
     const normalizedPhone = normalizePhone(formData.phone);
     if (!/^0\d{9}$/.test(normalizedPhone)) {
-      setErrorMsg('Số điện thoại không hợp lệ. Vui lòng nhập số điện thoại Việt Nam 10 số.');
+      setErrorMsg(t.invalidPhone);
       return;
     }
 
@@ -53,7 +53,7 @@ const Checkout = () => {
       setSuccessCode(data as string);
       cart.clearCart();
     } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : 'Đặt hàng thất bại. Vui lòng thử lại.');
+      setErrorMsg(err instanceof Error ? err.message : t.orderFailed);
     } finally {
       setLoading(false);
     }
@@ -70,16 +70,16 @@ const Checkout = () => {
           <CheckCircle className="w-12 h-12" />
         </div>
         <div className="space-y-4">
-          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">Đặt hàng thành công.</h2>
+          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.orderSuccess}</h2>
           <div className="bg-brand-cream px-8 py-6 rounded-[2rem] inline-block border-2 border-dashed border-brand-beige">
             <p className="text-brand-muted uppercase font-black text-[10px] tracking-[0.2em] mb-2">{t.orderCode}</p>
-            <p className="text-3xl font-black text-brand-brown font-sans">{successCode}</p>
+            <p className="text-3xl font-black text-brand-brown font-sans">#{successCode}</p>
           </div>
         </div>
 
         {formData.paymentMethod === 'transfer' && (
           <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500">
-            <p className="text-brand-ink font-bold font-sans">Vui lòng quét mã QR dưới đây để thanh toán:</p>
+            <p className="text-brand-ink font-bold font-sans">{t.scanToPay}</p>
             <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
               <img
                 src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'BIDV'}-${import.meta.env.VITE_BANK_ACCOUNT || '8843962433'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'VU DUC ANH')}`}
@@ -87,14 +87,14 @@ const Checkout = () => {
                 className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
               />
             </div>
-            <p className="text-xs text-brand-muted font-bold">Nội dung chuyển khoản: <span className="text-brand-brown font-black">{successCode}</span></p>
+            <p className="text-xs text-brand-muted font-bold">{t.transferNote} <span className="text-brand-brown font-black">{successCode}</span></p>
           </div>
         )}
 
-        <p className="text-brand-muted font-medium italic font-serif">
+        <p className="text-brand-muted font-medium italic font-serif text-sm">
           {formData.paymentMethod === 'cash'
-            ? 'Nhân viên sẽ liên hệ với bạn qua SMS hoặc Zalo trong ít phút để sẵn sàng giao hàng.'
-            : 'Vui lòng hoàn tất thanh toán, hệ thống sẽ tự động xác nhận đơn hàng của bạn.'}
+            ? t.cashInstructions
+            : t.transferInstructions}
         </p>
         <Link to="/" className="inline-flex items-center gap-2 bg-brand-brown text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:scale-105 transition-all shadow-xl shadow-brand-brown/20">
           {t.backToHome}
@@ -110,7 +110,7 @@ const Checkout = () => {
       className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-16"
     >
       <div className="flex-1 space-y-10">
-        <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">Thanh toán.</h2>
+        <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.checkoutTitle}</h2>
 
         {errorMsg && (
           <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100">
@@ -125,7 +125,7 @@ const Checkout = () => {
               <input
                 required
                 className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-                placeholder="Ex: Nguyễn Văn A"
+                placeholder={lang === 'EN' ? "Ex: John Doe" : "Ex: Nguyễn Văn A"}
                 value={formData.name}
                 onChange={e => {
                   const val = e.target.value.replace(/[^\p{L}\s]/gu, '');
@@ -156,7 +156,7 @@ const Checkout = () => {
             <input
               required
               className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-              placeholder="Ex: Phòng 502, Tòa A1, Khoa CNTT"
+              placeholder={lang === 'EN' ? "Ex: Room 502, Building A1, Dept of IT" : "Ex: Phòng 502, Tòa A1, Khoa CNTT"}
               value={formData.address}
               onChange={e => setFormData({ ...formData, address: e.target.value })}
             />
@@ -167,7 +167,7 @@ const Checkout = () => {
             <textarea
               className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
               rows={3}
-              placeholder="Ex: Không lấy đá, ship trước 10h..."
+              placeholder={lang === 'EN' ? "Ex: No ice, deliver before 10 AM..." : "Ex: Không lấy đá, ship trước 10h..."}
               value={formData.note}
               onChange={e => setFormData({ ...formData, note: e.target.value })}
             />
@@ -203,7 +203,7 @@ const Checkout = () => {
 
       <aside className="w-full lg:w-96">
         <div className="bg-white rounded-[2.5rem] border border-brand-beige p-8 shadow-xl sticky top-32 space-y-8">
-          <h3 className="font-serif text-2xl font-bold text-brand-ink">Xác nhận</h3>
+          <h3 className="font-serif text-2xl font-bold text-brand-ink">{t.confirmTitle}</h3>
 
           <div className="space-y-4">
             {cart.items.map(item => (
@@ -226,16 +226,16 @@ const Checkout = () => {
 
           <div className="bg-brand-cream p-5 rounded-2xl space-y-3">
             <div className="flex justify-between items-center text-xs">
-              <span className="text-brand-muted font-bold uppercase tracking-widest">Tạm tính</span>
+              <span className="text-brand-muted font-bold uppercase tracking-widest">{t.subtotal}</span>
               <span className="font-black text-brand-ink">{formatCurrency(cart.total)}</span>
             </div>
             <div className="flex justify-between items-center text-xs">
-              <span className="text-brand-muted font-bold uppercase tracking-widest">Phí giao hàng</span>
-              <span className="font-black text-green-600">0đ</span>
+              <span className="text-brand-muted font-bold uppercase tracking-widest">{t.cartShipping}</span>
+              <span className="font-black text-green-600">{formatCurrency(0)}</span>
             </div>
             <div className="h-px bg-brand-beige my-2" />
             <div className="flex justify-between items-baseline">
-              <span className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">Tổng cộng</span>
+              <span className="text-[10px] text-brand-muted font-black uppercase tracking-widest leading-none">{t.total}</span>
               <span className="text-2xl font-serif font-black text-brand-brown">{formatCurrency(cart.total)}</span>
             </div>
           </div>

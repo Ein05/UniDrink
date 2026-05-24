@@ -1,6 +1,6 @@
 export const translations = {
   VI: {
-    brand: "UniCafe",
+    brand: "UniDrink",
     tagline: "Trạm Đồ Uống Sinh Viên",
     menu: "Thực đơn",
     cart: "Giỏ hàng",
@@ -124,9 +124,13 @@ export const translations = {
     exportReport: "Xuất báo cáo (CSV)",
     colPendingOrders: "Chưa duyệt",
     colUnpaidRevenue: "Tiền chưa thu",
+    isFakeLabel: "Đơn ảo",
+    markFake: "Đánh dấu ảo",
+    unmarkFake: "Bỏ đánh dấu",
+    fakeWarning: "⚠ Đơn ảo",
   },
   EN: {
-    brand: "UniCafe",
+    brand: "UniDrink",
     tagline: "Student Drink Station",
     menu: "Menu",
     cart: "Cart",
@@ -250,5 +254,9 @@ export const translations = {
     exportReport: "Export Report (CSV)",
     colPendingOrders: "Unapproved",
     colUnpaidRevenue: "Unpaid Amount",
+    isFakeLabel: "Fake Order",
+    markFake: "Mark Fake",
+    unmarkFake: "Unmark",
+    fakeWarning: "⚠ Fake",
   }
 } as const;

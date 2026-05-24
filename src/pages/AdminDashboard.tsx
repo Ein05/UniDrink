@@ -178,6 +178,7 @@ const AdminDashboard = () => {
       const { data, error } = await supabase
         .from('products')
         .select('*')
+        .eq('is_deleted', false)
         .order('name');
       if (!error && data) setProducts(data as Product[]);
       setLoading(false);
@@ -237,6 +238,17 @@ const AdminDashboard = () => {
     if (error) {
       if (previous) setProducts(prev => prev.map(p => p.id === id ? previous : p));
       alert(t.productUpdateError + error.message);
+    }
+  };
+
+  // Toggle is_fake với optimistic update + rollback
+  const toggleFake = async (id: string, is_fake: boolean) => {
+    const previous = orders.find(o => o.id === id);
+    setOrders(prev => prev.map(o => o.id === id ? { ...o, is_fake } : o));
+    const { error } = await (supabase as any).from('orders').update({ is_fake }).eq('id', id);
+    if (error) {
+      if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
+      alert(t.updateError + error.message);
     }
   };
 
@@ -388,6 +400,12 @@ const AdminDashboard = () => {
                       {t.unpaidWarning}
                     </span>
                   )}
+                  {/* is_fake badge */}
+                  {order.is_fake && (
+                    <span className="bg-purple-50 text-purple-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-purple-200">
+                      {t.fakeWarning}
+                    </span>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-3 text-sm">
@@ -418,7 +436,7 @@ const AdminDashboard = () => {
                     onClick={() => fetchOrderLogs(order.id)}
                     className="text-xs text-brand-muted hover:text-brand-brown font-black uppercase tracking-wider flex items-center gap-1 underline"
                   >
-                    {loadingLogs[order.id] ? 'Loading...' : expandedLogs[order.id] ? (lang === 'EN' ? 'Hide History' : 'Ẩn lịch sử') : (lang === 'EN' ? 'View History' : 'Xem lịch sử')}
+                    {loadingLogs[order.id] ? (lang === 'EN' ? 'Loading...' : 'Đang tải...') : expandedLogs[order.id] ? (lang === 'EN' ? 'Hide History' : 'Ẩn lịch sử') : (lang === 'EN' ? 'View History' : 'Xem lịch sử')}
                   </button>
                   
                   {expandedLogs[order.id] && (
@@ -480,6 +498,17 @@ const AdminDashboard = () => {
                   className="bg-white border border-brand-beige text-brand-muted px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-brown hover:text-white transition-all grow md:grow-0"
                 >
                   {t.editButton}
+                </button>
+                <button
+                  onClick={() => toggleFake(order.id, !order.is_fake)}
+                  className={cn(
+                    "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all grow md:grow-0",
+                    order.is_fake
+                      ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
+                      : "bg-white border border-brand-beige text-brand-muted hover:bg-purple-100 hover:text-purple-700 hover:border-purple-200"
+                  )}
+                >
+                  {order.is_fake ? t.unmarkFake : t.markFake}
                 </button>
               </div>
             </div>

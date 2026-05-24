@@ -79,3 +79,10 @@ BEGIN
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 3. Áp dụng trigger mới (thay thế trigger cũ từ supabase_update_order_logs.sql)
+DROP TRIGGER IF EXISTS trigger_log_order_changes ON public.orders;
+CREATE TRIGGER trigger_log_order_changes
+AFTER INSERT OR UPDATE ON public.orders
+FOR EACH ROW
+EXECUTE FUNCTION public.log_order_changes();

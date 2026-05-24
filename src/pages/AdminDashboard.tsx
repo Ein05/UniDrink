@@ -28,6 +28,8 @@ const AdminDashboard = () => {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<Record<string, OrderLog[]>>({});
   const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [savingProduct, setSavingProduct] = useState(false);
 
   const fetchOrderLogs = async (orderId: string) => {
     if (expandedLogs[orderId]) {
@@ -250,6 +252,26 @@ const AdminDashboard = () => {
       if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
       alert(t.updateError + error.message);
     }
+  };
+
+  // Cập nhật thông tin sản phẩm (optimistic + rollback)
+  const updateProduct = async (fields: Partial<Product>) => {
+    if (!editingProduct) return;
+    const previous = products.find(p => p.id === editingProduct.id);
+    setSavingProduct(true);
+    setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...fields } : p));
+    setEditingProduct(null);
+
+    const { error } = await (supabase as any)
+      .from('products')
+      .update(fields)
+      .eq('id', editingProduct.id);
+
+    if (error) {
+      if (previous) setProducts(prev => prev.map(p => p.id === editingProduct.id ? previous : p));
+      alert(t.productUpdateError + error.message);
+    }
+    setSavingProduct(false);
   };
 
   const handleLogout = async () => {
@@ -520,28 +542,37 @@ const AdminDashboard = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {products.map(product => (
-            <div key={product.id} className="bg-white p-6 rounded-[2rem] border border-brand-beige flex items-center gap-4">
-              <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0">
-                {product.image_url ? (
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
-                ) : (
-                  <span>{product.emoji || '☕'}</span>
-                )}
+              <div key={product.id} className="bg-white p-5 rounded-[2rem] border border-brand-beige flex items-center gap-4 hover:shadow-md transition-all group">
+                <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden">
+                  {product.image_url ? (
+                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
+                  ) : (
+                    <span>{product.emoji || '☕'}</span>
+                  )}
+                </div>
+                <div className="grow min-w-0">
+                  <h3 className="font-bold text-brand-ink truncate">{lang === 'EN' ? product.name_en || product.name : product.name}</h3>
+                  <p className="text-brand-brown text-sm font-black">{formatCurrency(product.price)}</p>
+                  <p className="text-[10px] text-brand-muted uppercase tracking-widest font-bold">{product.category}</p>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  <button
+                    onClick={() => toggleProduct(product.id, !product.is_available)}
+                    className={cn(
+                      "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                      product.is_available ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-red-100 text-red-700 hover:bg-red-200"
+                    )}
+                  >
+                    {product.is_available ? t.availableLabel : t.unavailableLabel}
+                  </button>
+                  <button
+                    onClick={() => setEditingProduct(product)}
+                    className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border border-brand-beige text-brand-muted hover:bg-brand-brown hover:text-white hover:border-brand-brown transition-all"
+                  >
+                    {t.editButton}
+                  </button>
+                </div>
               </div>
-              <div className="grow">
-                <h3 className="font-bold text-brand-ink">{lang === 'EN' ? product.name_en || product.name : product.name}</h3>
-                <p className="text-brand-brown text-sm font-black">{formatCurrency(product.price)}</p>
-              </div>
-              <button
-                onClick={() => toggleProduct(product.id, !product.is_available)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
-                  product.is_available ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-red-100 text-red-700 hover:bg-red-200"
-                )}
-              >
-                {product.is_available ? t.availableLabel : t.unavailableLabel}
-              </button>
-            </div>
           ))}
         </div>
       )}
@@ -692,6 +723,201 @@ const AdminDashboard = () => {
                   className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10"
                 >
                   {t.saveButton}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {editingProduct && (
+        <div className="fixed inset-0 bg-brand-ink/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-brand-cream border border-brand-beige rounded-[2.5rem] max-w-xl w-full p-6 md:p-10 shadow-2xl max-h-[90vh] overflow-y-auto space-y-6">
+
+            {/* Header với live preview */}
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-white border-2 border-brand-beige rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden">
+                {editingProduct.image_url ? (
+                  <img src={editingProduct.image_url} alt="" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ) : (
+                  <span>{editingProduct.emoji || '☕'}</span>
+                )}
+              </div>
+              <div>
+                <h3 className="text-xl font-serif font-black text-brand-ink">{t.editProduct}</h3>
+                <p className="text-[10px] text-brand-muted uppercase tracking-widest font-bold">{editingProduct.name}</p>
+              </div>
+            </div>
+
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const fd = new FormData(e.currentTarget);
+                const updatedFields: Partial<Product> = {
+                  name: (fd.get('name') as string).trim(),
+                  name_en: (fd.get('name_en') as string).trim() || undefined,
+                  price: parseFloat(fd.get('price') as string),
+                  category: (fd.get('category') as string).trim(),
+                  emoji: (fd.get('emoji') as string).trim() || undefined,
+                  description: (fd.get('description') as string).trim() || undefined,
+                  description_en: (fd.get('description_en') as string).trim() || undefined,
+                  image_url: (fd.get('image_url') as string).trim() || undefined,
+                  is_available: fd.get('is_available') === 'true',
+                };
+                await updateProduct(updatedFields);
+              }}
+              className="space-y-5"
+            >
+              {/* Tên VI / EN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productName}</label>
+                  <input
+                    required
+                    name="name"
+                    defaultValue={editingProduct.name}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                    placeholder="Ví dụ: Cà Phê Sữa Đá"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productNameEn}</label>
+                  <input
+                    name="name_en"
+                    defaultValue={editingProduct.name_en || ''}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                    placeholder="Ex: Iced Coffee"
+                  />
+                </div>
+              </div>
+
+              {/* Giá & Trạng thái */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productPrice}</label>
+                  <input
+                    required
+                    name="price"
+                    type="number"
+                    min={0}
+                    step={500}
+                    defaultValue={editingProduct.price}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{lang === 'EN' ? 'Status' : 'Trạng thái'}</label>
+                  <select
+                    name="is_available"
+                    defaultValue={String(editingProduct.is_available)}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  >
+                    <option value="true">{t.availableLabel}</option>
+                    <option value="false">{t.unavailableLabel}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Nhóm hàng (category) — input tự do + gợi ý */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">
+                  {t.productCategory}
+                  <span className="ml-2 normal-case font-medium text-brand-muted/60">
+                    {lang === 'EN' ? '(type freely or pick a suggestion)' : '(gõ tự do hoặc chọn gợi ý)'}
+                  </span>
+                </label>
+                <input
+                  required
+                  name="category"
+                  list="category-suggestions"
+                  defaultValue={editingProduct.category}
+                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  placeholder={lang === 'EN' ? 'e.g. coffee, teaMilk, juice...' : 'Ví dụ: coffee, teaMilk, juice...'}
+                />
+                <datalist id="category-suggestions">
+                  <option value="coffee">{lang === 'EN' ? 'Coffee' : 'Cà phê'}</option>
+                  <option value="teaMilk">{lang === 'EN' ? 'Milk Tea' : 'Trà Sữa'}</option>
+                  <option value="tea">{lang === 'EN' ? 'Tea' : 'Trà'}</option>
+                  <option value="juice">{lang === 'EN' ? 'Juice' : 'Nước ép'}</option>
+                  <option value="smoothie">{lang === 'EN' ? 'Smoothie' : 'Sinh Tố'}</option>
+                </datalist>
+                <p className="text-[10px] text-amber-600 font-bold">
+                  {lang === 'EN'
+                    ? '⚠ If you use a new category name, add it to Home.tsx categories list to show filter button.'
+                    : '⚠ Nếu tạo nhóm mới, cần thêm vào danh sách categories trong Home.tsx để hiện nút lọc.'}
+                </p>
+              </div>
+
+              {/* Emoji */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productEmoji}</label>
+                <input
+                  name="emoji"
+                  defaultValue={editingProduct.emoji || ''}
+                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, emoji: e.target.value, image_url: prev.image_url } : null)}
+                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  placeholder="☕, 🧋, 🍑..."
+                />
+              </div>
+
+              {/* Ảnh URL với live preview */}
+              <div className="space-y-1">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productImageUrl}</label>
+                <input
+                  name="image_url"
+                  type="url"
+                  defaultValue={editingProduct.image_url || ''}
+                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, image_url: e.target.value } : null)}
+                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
+                  placeholder="https://..."
+                />
+                <p className="text-[10px] text-brand-muted">
+                  {lang === 'EN' ? 'Leave blank to use emoji instead. Preview updates live above.' : 'Bỏ trống để dùng emoji. Preview cập nhật trực tiếp ở trên.'}
+                </p>
+              </div>
+
+              {/* Mô tả VI / EN */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productDesc}</label>
+                  <textarea
+                    name="description"
+                    defaultValue={editingProduct.description || ''}
+                    rows={3}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown resize-none"
+                    placeholder="Mô tả ngắn gọn..."
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productDescEn}</label>
+                  <textarea
+                    name="description_en"
+                    defaultValue={editingProduct.description_en || ''}
+                    rows={3}
+                    className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown resize-none"
+                    placeholder="Short description..."
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="pt-2 flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={() => setEditingProduct(null)}
+                  className="px-6 py-3 bg-white border border-brand-beige text-brand-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-cream transition-colors"
+                >
+                  {t.cancelButton}
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingProduct}
+                  className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10 disabled:opacity-60 flex items-center gap-2"
+                >
+                  {savingProduct
+                    ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{lang === 'EN' ? 'Saving...' : 'Đang lưu...'}</>
+                    : t.saveButton}
                 </button>
               </div>
             </form>

@@ -67,3 +67,24 @@ CREATE POLICY "Allow read order_logs if order is viewable" ON public.order_logs
             WHERE orders.id = order_logs.order_id
         )
     );
+
+-- ============================================================
+-- STEP 2b: TABLE-LEVEL GRANTS
+-- RLS policies only filter rows — roles also need table-level
+-- SELECT/INSERT/UPDATE/DELETE privileges to pass the first gate.
+-- ============================================================
+
+-- anon (unauthenticated visitors) can read products
+GRANT SELECT ON public.products TO anon;
+
+-- authenticated users get read access to relevant tables
+GRANT SELECT ON public.products      TO authenticated;
+GRANT SELECT ON public.orders        TO authenticated;
+GRANT SELECT ON public.order_items   TO authenticated;
+GRANT SELECT ON public.order_logs    TO authenticated;
+GRANT SELECT ON public.admins        TO authenticated;
+GRANT SELECT, INSERT, DELETE ON public.blacklisted_emails TO authenticated;
+
+-- authenticated admins can update orders and products (RLS enforces is_admin check)
+GRANT UPDATE ON public.orders   TO authenticated;
+GRANT UPDATE ON public.products TO authenticated;

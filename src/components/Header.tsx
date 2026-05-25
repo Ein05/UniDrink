@@ -3,15 +3,42 @@ import { Link } from 'react-router-dom';
 import { Coffee, ShoppingCart, User, PackageSearch } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../lib/supabase';
 
 const Header = () => {
   const { lang, setLang, cart } = useApp();
   const [isScrolled, setIsScrolled] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10);
     window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      setSession(session);
+      if (session) {
+        const { data } = await (supabase as any).rpc('check_is_admin');
+        setIsAdmin(!!data);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      setSession(session);
+      if (session) {
+        const { data } = await (supabase as any).rpc('check_is_admin');
+        setIsAdmin(!!data);
+      } else {
+        setIsAdmin(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   return (
@@ -64,7 +91,10 @@ const Header = () => {
             <PackageSearch className="w-5 h-5 md:w-6 md:h-6 stroke-[1.5]" />
           </Link>
 
-          <Link to="/admin" className="p-1.5 sm:p-2 text-brand-ink hover:text-brand-brown transition-colors shrink-0">
+          <Link
+            to={!session ? "/login" : (isAdmin ? "/admin/dashboard" : "/track")}
+            className="p-1.5 sm:p-2 text-brand-ink hover:text-brand-brown transition-colors shrink-0"
+          >
             <User className="w-5 h-5 md:w-6 md:h-6 stroke-[1.5]" />
           </Link>
         </div>

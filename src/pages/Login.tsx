@@ -6,7 +6,7 @@ import { useApp } from '../context/AppContext';
 
 type AuthMode = 'signin' | 'signup';
 
-const AdminLogin = () => {
+const Login = () => {
   const { t, lang } = useApp();
   const navigate = useNavigate();
   const location = useLocation();
@@ -23,10 +23,27 @@ const AdminLogin = () => {
   const notAuthorized = (location.state as any)?.notAuthorized;
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) navigate('/admin/dashboard');
-    });
-  }, [navigate]);
+    let active = true;
+    const checkSessionAndRedirect = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && active) {
+        // Chỉ tự động redirect nếu không phải trường hợp vừa bị đá ra từ Dashboard do không có quyền
+        if (notAuthorized) {
+          return;
+        }
+        const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+        if (active) {
+          if (isAdmin) {
+            navigate('/admin/dashboard');
+          } else {
+            navigate('/track');
+          }
+        }
+      }
+    };
+    checkSessionAndRedirect();
+    return () => { active = false; };
+  }, [navigate, notAuthorized]);
 
   /* ── Email auth ── */
   const handleEmailAuth = async (e: FormEvent) => {
@@ -40,17 +57,23 @@ const AdminLogin = () => {
       if (error) {
         setErrorMsg(error.message);
       } else if (!data.session) {
-        // Supabase yêu cầu xác nhận email
         setSuccessMsg(t.adminConfirmEmail);
       } else {
-        navigate('/admin/dashboard');
+        // Tài khoản mới tạo mặc định là user thường
+        navigate('/track');
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setErrorMsg(error.message);
       } else {
-        navigate('/admin/dashboard');
+        // Đăng nhập thành công, check role để redirect
+        const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+        if (isAdmin) {
+          navigate('/admin/dashboard');
+        } else {
+          navigate('/track');
+        }
       }
     }
     setLoading(false);
@@ -62,7 +85,7 @@ const AdminLogin = () => {
     setErrorMsg(null);
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: window.location.origin + '/admin/dashboard' },
+      options: { redirectTo: window.location.origin + '/login' },
     });
     if (error) {
       setErrorMsg(error.message);
@@ -199,12 +222,12 @@ const AdminLogin = () => {
         {/* Access note */}
         <p className="text-center text-[10px] text-brand-muted/60 font-medium leading-relaxed">
           {lang === 'EN'
-            ? 'Only authorized accounts can access the Admin Dashboard.'
-            : 'Chỉ tài khoản được cấp quyền mới truy cập được Admin Dashboard.'}
+            ? 'Sign in to buy items and track your order history. Only authorized accounts can access the Admin Dashboard.'
+            : 'Đăng nhập để đặt hàng và theo dõi lịch sử mua hàng. Chỉ tài khoản được phân quyền mới có thể vào Dashboard Admin.'}
         </p>
       </div>
     </motion.div>
   );
 };
 
-export default AdminLogin;
+export default Login;

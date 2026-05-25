@@ -204,15 +204,15 @@ const AdminDashboard = () => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        navigate('/admin');
+        navigate('/login');
         return;
       }
 
       // Kiểm tra quyền admin qua bảng admins trong DB (SECURITY DEFINER RPC)
       const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
       if (!isAdmin) {
-        await supabase.auth.signOut();
-        navigate('/admin', { state: { notAuthorized: true } });
+        // Không gọi signOut() để giữ phiên đăng nhập của User thường
+        navigate('/login', { state: { notAuthorized: true } });
         return;
       }
 

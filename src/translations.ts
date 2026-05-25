@@ -147,7 +147,7 @@ export const translations = {
     myOrdersTitle: "Đơn hàng của tôi.",
     myOrdersSubtitle: "Theo dõi tiến độ realtime",
     myOrdersLoginTitle: "Đăng nhập để xem đơn hàng",
-    myOrdersLoginDesc: "Vui lòng đăng nhập bằng tài khoản Google để xem toàn bộ lịch sử đặt hàng của bạn.",
+    myOrdersLoginDesc: "Vui lòng đăng nhập để xem toàn bộ lịch sử đặt hàng của bạn.",
     myOrdersEmpty: "Bạn chưa có đơn hàng nào.",
     orderItemsTitle: "Danh sách món",
 
@@ -308,7 +308,7 @@ export const translations = {
     myOrdersTitle: "My Orders.",
     myOrdersSubtitle: "Track your order progress",
     myOrdersLoginTitle: "Sign in to view your orders",
-    myOrdersLoginDesc: "Please sign in with your Google account to view your full order history.",
+    myOrdersLoginDesc: "Please sign in to view your full order history.",
     myOrdersEmpty: "You haven't placed any orders yet.",
     orderItemsTitle: "Order Items",
 

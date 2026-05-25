@@ -100,7 +100,7 @@ BEGIN
         -- Get product price and names
         SELECT price, name, name_en
         INTO v_price, v_product_name, v_product_name_en
-        FROM public.products WHERE id = v_item.id;
+        FROM public.products WHERE id::text = v_item.id;
         
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Product with id % not found', v_item.id;

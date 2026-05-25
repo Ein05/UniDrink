@@ -30,7 +30,7 @@ const AdminDashboard = () => {
   const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
-  const [hideFake, setHideFake] = useState(true); // Mặc định ẩn đơn ảo để tránh rác dashboard
+
   const [blacklistedEmails, setBlacklistedEmails] = useState<string[]>([]);
 
   const fetchOrderLogs = async (orderId: string) => {
@@ -59,7 +59,7 @@ const AdminDashboard = () => {
   // Báo cáo theo ngày — memoized và tự động điền các ngày trống
   const reportsByDate = useMemo(() => {
     const grouped = orders.reduce<Record<string, DayReport>>((acc, order) => {
-      if (order.is_fake) return acc; // LOẠI BỎ ĐƠN ẢO KHỎI BÁO CÁO DOANH THU
+
       const date = format(new Date(order.created_at), 'yyyy-MM-dd');
       if (!acc[date]) {
         acc[date] = { date, totalOrders: 0, completedOrders: 0, cancelledOrders: 0, revenue: 0, unpaidDoneOrders: 0, unpaidRevenue: 0, pendingOrders: 0 };
@@ -163,14 +163,11 @@ const AdminDashboard = () => {
   const todayRevenue = useMemo(() => {
     const today = format(new Date(), 'yyyy-MM-dd');
     return orders
-      .filter(o => !o.is_fake && o.status === 'done' && o.is_paid && format(new Date(o.created_at), 'yyyy-MM-dd') === today)
+      .filter(o => o.status === 'done' && o.is_paid && format(new Date(o.created_at), 'yyyy-MM-dd') === today)
       .reduce((acc, o) => acc + o.total_price, 0);
   }, [orders]);
 
-  // Lọc đơn hàng dựa theo toggle ẩn đơn ảo
-  const filteredOrders = useMemo(() => {
-    return orders.filter(order => !hideFake || !order.is_fake);
-  }, [orders, hideFake]);
+
 
   useEffect(() => {
     // FIX #2: khai báo channel biến ngoài để cleanup đúng
@@ -185,13 +182,16 @@ const AdminDashboard = () => {
     };
 
     const fetchProducts = async () => {
-      const { data, error } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_deleted', false)
-        .order('name');
-      if (!error && data) setProducts(data as Product[]);
-      setLoading(false);
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_deleted', false)
+          .order('name');
+        if (!error && data) setProducts(data as Product[]);
+      } finally {
+        setLoading(false);
+      }
     };
 
     const fetchBlacklistedEmails = async () => {
@@ -205,6 +205,14 @@ const AdminDashboard = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         navigate('/admin');
+        return;
+      }
+
+      // Kiểm tra quyền admin qua bảng admins trong DB (SECURITY DEFINER RPC)
+      const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        navigate('/admin', { state: { notAuthorized: true } });
         return;
       }
 
@@ -258,16 +266,7 @@ const AdminDashboard = () => {
     }
   };
 
-  // Toggle is_fake với optimistic update + rollback
-  const toggleFake = async (id: string, is_fake: boolean) => {
-    const previous = orders.find(o => o.id === id);
-    setOrders(prev => prev.map(o => o.id === id ? { ...o, is_fake } : o));
-    const { error } = await (supabase as any).from('orders').update({ is_fake }).eq('id', id);
-    if (error) {
-      if (previous) setOrders(prev => prev.map(o => o.id === id ? previous : o));
-      alert(t.updateError + error.message);
-    }
-  };
+
 
   // Thêm/Xóa email khỏi blacklist (chặn spam)
   const toggleEmailBlacklist = async (email: string) => {
@@ -446,28 +445,9 @@ const AdminDashboard = () => {
         </div>
       ) : activeTab === 'orders' ? (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-white border border-brand-beige rounded-[1.5rem] px-6 py-4">
-            <span className="text-xs font-black text-brand-muted uppercase tracking-wider">
-              {lang === 'EN' ? 'Filter Orders' : 'Bộ lọc đơn'}
-            </span>
-            <button
-              onClick={() => setHideFake(!hideFake)}
-              className={cn(
-                "px-4 py-2 rounded-xl text-xs font-bold transition-all uppercase tracking-wider border flex items-center gap-2",
-                hideFake
-                  ? "bg-purple-50 text-purple-700 border-purple-200"
-                  : "bg-white text-brand-muted border-brand-beige hover:border-purple-200 hover:text-purple-700"
-              )}
-            >
-              <span className={cn("w-2 h-2 rounded-full", hideFake ? "bg-purple-500 animate-pulse" : "bg-brand-muted/40")} />
-              {hideFake
-                ? (lang === 'EN' ? 'Hidden Fake Orders' : 'Đang ẩn đơn ảo')
-                : (lang === 'EN' ? 'Showing All' : 'Đang hiện tất cả')}
-            </button>
-          </div>
 
           <div className="grid grid-cols-1 gap-6">
-            {filteredOrders.map(order => (
+            {orders.map(order => (
             <div key={order.id} className="bg-white rounded-[2rem] md:rounded-[2.5rem] p-5 md:p-8 border border-brand-beige flex flex-col md:flex-row gap-5 md:gap-8 hover:shadow-xl transition-all group">
               <div className="space-y-4 grow">
                 <div className="flex flex-wrap items-center gap-2 md:gap-4">
@@ -492,12 +472,7 @@ const AdminDashboard = () => {
                       {t.unpaidWarning}
                     </span>
                   )}
-                  {/* is_fake badge */}
-                  {order.is_fake && (
-                    <span className="bg-purple-50 text-purple-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-purple-200">
-                      {t.fakeWarning}
-                    </span>
-                  )}
+
                   {/* Blocked email badge */}
                   {order.customer_email && blacklistedEmails.includes(order.customer_email.toLowerCase()) && (
                     <span className="bg-red-50 text-red-700 text-[10px] font-black uppercase px-4 py-1 rounded-full border border-red-200">
@@ -605,17 +580,7 @@ const AdminDashboard = () => {
                 >
                   {t.editButton}
                 </button>
-                <button
-                  onClick={() => toggleFake(order.id, !order.is_fake)}
-                  className={cn(
-                    "px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all grow md:grow-0",
-                    order.is_fake
-                      ? "bg-purple-100 text-purple-700 hover:bg-purple-200"
-                      : "bg-white border border-brand-beige text-brand-muted hover:bg-purple-100 hover:text-purple-700 hover:border-purple-200"
-                  )}
-                >
-                  {order.is_fake ? t.unmarkFake : t.markFake}
-                </button>
+
                 {order.customer_email && (
                   <button
                     onClick={() => toggleEmailBlacklist(order.customer_email!)}
@@ -632,7 +597,7 @@ const AdminDashboard = () => {
               </div>
             </div>
           ))}
-          {filteredOrders.length === 0 && (
+          {orders.length === 0 && (
             <div className="py-20 text-center text-brand-muted italic">{t.noOrders}</div>
           )}
           </div>
@@ -696,32 +661,35 @@ const AdminDashboard = () => {
                 is_paid: formData.get('is_paid') === 'true',
               };
 
-              const previous = orders.find(o => o.id === editingOrder.id);
-              
+              // FIX: capture id trước khi setEditingOrder(null) để tránh stale closure
+              const targetOrderId = editingOrder.id;
+              const previous = orders.find(o => o.id === targetOrderId);
+              const hadExpandedLogs = !!expandedLogs[targetOrderId];
+
               // Optimistic update
-              setOrders(prev => prev.map(o => o.id === editingOrder.id ? { ...o, ...updatedFields } : o));
+              setOrders(prev => prev.map(o => o.id === targetOrderId ? { ...o, ...updatedFields } : o));
               setEditingOrder(null);
 
               const { error } = await (supabase as any)
                 .from('orders')
                 .update(updatedFields)
-                .eq('id', editingOrder.id);
+                .eq('id', targetOrderId);
 
               if (error) {
-                if (previous) setOrders(prev => prev.map(o => o.id === editingOrder.id ? previous : o));
+                if (previous) setOrders(prev => prev.map(o => o.id === targetOrderId ? previous : o));
                 alert(t.updateError + error.message);
               } else {
-                // If the logs are currently expanded for this order, refresh them!
-                if (expandedLogs[editingOrder.id]) {
+                // Nếu log đang mở, refresh sau 500ms để trigger mới nhất
+                if (hadExpandedLogs) {
                   setTimeout(() => {
                     supabase
                       .from('order_logs')
                       .select('*')
-                      .eq('order_id', editingOrder.id)
+                      .eq('order_id', targetOrderId)
                       .order('created_at', { ascending: true })
                       .then(({ data }) => {
                         if (data) {
-                          setExpandedLogs(prev => ({ ...prev, [editingOrder.id]: data as OrderLog[] }));
+                          setExpandedLogs(prev => ({ ...prev, [targetOrderId]: data as OrderLog[] }));
                         }
                       });
                   }, 500);

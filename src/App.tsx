@@ -47,8 +47,8 @@ export default function App() {
   const t = translations[lang];
 
   return (
-    <AppContext.Provider value={{ lang, setLang, t, cart }}>
-      <BrowserRouter>
+    <BrowserRouter>
+      <AppContext.Provider value={{ lang, setLang, t, cart }}>
         <div className="min-h-screen flex flex-col">
           <Header />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-10 pt-28">
@@ -56,7 +56,7 @@ export default function App() {
           </main>
           <Footer />
         </div>
-      </BrowserRouter>
-    </AppContext.Provider>
+      </AppContext.Provider>
+    </BrowserRouter>
   );
 }

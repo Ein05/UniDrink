@@ -54,6 +54,15 @@ const Checkout = () => {
     }
   };
 
+  // Ưu tiên show loading trước khi redirect để tránh race condition
+  if (authLoading) {
+    return (
+      <div className="text-center py-20 text-[10px] font-black uppercase tracking-[0.3em] text-brand-muted animate-pulse">
+        {lang === 'EN' ? 'Verifying Session...' : 'Đang xác thực phiên...'}
+      </div>
+    );
+  }
+
   // FIX #1: dùng Navigate thay vì render <Home /> trong layout sai
   if (cart.items.length === 0 && !successCode) {
     return <Navigate to="/" replace />;
@@ -153,13 +162,6 @@ const Checkout = () => {
     );
   }
 
-  if (authLoading) {
-    return (
-      <div className="text-center py-20 text-[10px] font-black uppercase tracking-[0.3em] text-brand-muted animate-pulse">
-        {lang === 'EN' ? 'Verifying Session...' : 'Đang xác thực phiên...'}
-      </div>
-    );
-  }
 
   if (!session) {
     return (

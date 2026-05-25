@@ -24,7 +24,6 @@ export interface Order {
   payment_method: 'cash' | 'transfer';
   is_paid: boolean;
   status: 'pending' | 'processing' | 'done' | 'cancelled';
-  is_fake: boolean;
   customer_email?: string;
   created_at: string;
 }
@@ -43,6 +42,7 @@ export interface OrderItem {
   order_id: string;
   product_id?: string;
   product_name: string;
+  product_name_en?: string;
   quantity: number;
   price: number;
 }

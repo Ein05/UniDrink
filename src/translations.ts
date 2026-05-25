@@ -125,10 +125,7 @@ export const translations = {
     exportReport: "Xuất báo cáo (CSV)",
     colPendingOrders: "Chưa duyệt",
     colUnpaidRevenue: "Tiền chưa thu",
-    isFakeLabel: "Đơn ảo",
-    markFake: "Đánh dấu ảo",
-    unmarkFake: "Bỏ đánh dấu",
-    fakeWarning: "⚠ Đơn ảo",
+
     editProduct: "Chỉnh sửa sản phẩm",
     productName: "Tên sản phẩm (Tiếng Việt)",
     productNameEn: "Tên sản phẩm (Tiếng Anh)",
@@ -145,6 +142,23 @@ export const translations = {
     blockEmail: "Khóa Email",
     unblockEmail: "Mở khóa Email",
     blockedEmailBadge: "Email bị chặn",
+
+    // TrackOrder — lịch sử mua hàng
+    myOrdersTitle: "Đơn hàng của tôi.",
+    myOrdersSubtitle: "Theo dõi tiến độ realtime",
+    myOrdersLoginTitle: "Đăng nhập để xem đơn hàng",
+    myOrdersLoginDesc: "Vui lòng đăng nhập bằng tài khoản Google để xem toàn bộ lịch sử đặt hàng của bạn.",
+    myOrdersEmpty: "Bạn chưa có đơn hàng nào.",
+    orderItemsTitle: "Danh sách món",
+
+    // AdminLogin — redesign
+    adminPortalTitle: "Cổng quản trị.",
+    adminPortalSubtitle: "Đăng nhập để tiếp tục",
+    adminSignIn: "Đăng nhập",
+    adminSignUp: "Đăng ký",
+    adminOrDivider: "hoặc",
+    adminNotAuthorized: "Tài khoản này không có quyền truy cập Admin.",
+    adminConfirmEmail: "Vui lòng kiểm tra email để xác nhận tài khoản.",
   },
   EN: {
     brand: "UniDrink",
@@ -272,10 +286,7 @@ export const translations = {
     exportReport: "Export Report (CSV)",
     colPendingOrders: "Unapproved",
     colUnpaidRevenue: "Unpaid Amount",
-    isFakeLabel: "Fake Order",
-    markFake: "Mark Fake",
-    unmarkFake: "Unmark",
-    fakeWarning: "⚠ Fake",
+
     editProduct: "Edit Product",
     productName: "Product Name (Vietnamese)",
     productNameEn: "Product Name (English)",
@@ -292,5 +303,22 @@ export const translations = {
     blockEmail: "Block Email",
     unblockEmail: "Unblock Email",
     blockedEmailBadge: "Blocked Email",
+
+    // TrackOrder — order history
+    myOrdersTitle: "My Orders.",
+    myOrdersSubtitle: "Track your order progress",
+    myOrdersLoginTitle: "Sign in to view your orders",
+    myOrdersLoginDesc: "Please sign in with your Google account to view your full order history.",
+    myOrdersEmpty: "You haven't placed any orders yet.",
+    orderItemsTitle: "Order Items",
+
+    // AdminLogin — redesign
+    adminPortalTitle: "Admin Portal.",
+    adminPortalSubtitle: "Sign in to continue",
+    adminSignIn: "Sign In",
+    adminSignUp: "Sign Up",
+    adminOrDivider: "or",
+    adminNotAuthorized: "This account does not have Admin access.",
+    adminConfirmEmail: "Please check your email to confirm your account.",
   }
 } as const;

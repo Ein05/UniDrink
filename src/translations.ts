@@ -152,8 +152,8 @@ export const translations = {
     orderItemsTitle: "Danh sách món",
 
     // AdminLogin — redesign
-    adminPortalTitle: "Cổng quản trị.",
-    adminPortalSubtitle: "Đăng nhập để tiếp tục",
+    adminPortalTitle: "UniDrink.",
+    adminPortalSubtitle: "Đăng nhập hoặc tạo tài khoản mới",
     adminSignIn: "Đăng nhập",
     adminSignUp: "Đăng ký",
     adminOrDivider: "hoặc",
@@ -313,8 +313,8 @@ export const translations = {
     orderItemsTitle: "Order Items",
 
     // AdminLogin — redesign
-    adminPortalTitle: "Admin Portal.",
-    adminPortalSubtitle: "Sign in to continue",
+    adminPortalTitle: "UniDrink.",
+    adminPortalSubtitle: "Sign in or create a new account",
     adminSignIn: "Sign In",
     adminSignUp: "Sign Up",
     adminOrDivider: "or",

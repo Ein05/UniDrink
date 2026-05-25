@@ -235,10 +235,7 @@ const Checkout = () => {
                 className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
                 placeholder={lang === 'EN' ? "Ex: John Doe" : "Ex: Nguyễn Văn A"}
                 value={formData.name}
-                onChange={e => {
-                  const val = e.target.value.replace(/[^\p{L}\s]/gu, '');
-                  setFormData({ ...formData, name: val });
-                }}
+                onChange={e => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
             <div className="space-y-2">

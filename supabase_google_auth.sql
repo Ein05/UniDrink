@@ -23,7 +23,28 @@ DROP POLICY IF EXISTS "Allow authenticated full access to blacklisted_emails" ON
 CREATE POLICY "Allow authenticated full access to blacklisted_emails" ON public.blacklisted_emails
     FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- 4. Clean up all old overloaded function signatures to avoid conflicts
+-- 4. Create sequence and generate_order_code function if missing
+CREATE SEQUENCE IF NOT EXISTS public.order_code_seq START 1;
+
+SELECT setval('public.order_code_seq',
+    COALESCE((SELECT MAX(SUBSTRING(order_code FROM 3)::INTEGER) FROM public.orders WHERE order_code ~ '^DH[0-9]+$'), 0)
+);
+
+CREATE OR REPLACE FUNCTION public.generate_order_code()
+RETURNS TEXT AS $$
+DECLARE
+    next_seq BIGINT;
+    new_code TEXT;
+BEGIN
+    next_seq := nextval('public.order_code_seq');
+    new_code := 'DH' || LPAD(next_seq::TEXT, 6, '0');
+    RETURN new_code;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.generate_order_code() TO anon, authenticated, service_role;
+
+-- 5. Clean up all old overloaded function signatures to avoid conflicts
 DO $$
 DECLARE
     r RECORD;

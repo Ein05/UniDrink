@@ -23,7 +23,22 @@ DROP POLICY IF EXISTS "Allow authenticated full access to blacklisted_emails" ON
 CREATE POLICY "Allow authenticated full access to blacklisted_emails" ON public.blacklisted_emails
     FOR ALL TO authenticated USING (true) WITH CHECK (true);
 
--- 4. Update create_order_with_items function
+-- 4. Clean up all old overloaded function signatures to avoid conflicts
+DO $$
+DECLARE
+    r RECORD;
+BEGIN
+    FOR r IN 
+        SELECT oid::regprocedure AS proname 
+        FROM pg_proc 
+        WHERE proname::text LIKE 'public.create_order_with_items(%'
+    LOOP
+        EXECUTE 'DROP FUNCTION ' || r.proname;
+    END LOOP;
+END;
+$$;
+
+-- 5. Update create_order_with_items function (7 parameters, with product_name and product_name_en snapshots)
 CREATE OR REPLACE FUNCTION public.create_order_with_items(
     p_customer_name TEXT,
     p_customer_phone TEXT,
@@ -40,13 +55,15 @@ DECLARE
     v_total_price NUMERIC := 0;
     v_item RECORD;
     v_price NUMERIC;
+    v_product_name TEXT;
+    v_product_name_en TEXT;
 BEGIN
     -- Kiểm tra email có nằm trong danh sách đen (blacklist) không
     IF EXISTS (SELECT 1 FROM public.blacklisted_emails WHERE email = LOWER(TRIM(p_customer_email))) THEN
         RAISE EXCEPTION 'Email này đã bị khoá hệ thống do vi phạm chính sách spam.';
     END IF;
 
-    -- Generate order code
+    -- Generate order code (uses sequence from critical fix)
     v_order_code := public.generate_order_code();
 
     -- Create order first with 0 total, we will update it later
@@ -59,18 +76,20 @@ BEGIN
     -- Loop through items and insert them
     FOR v_item IN SELECT * FROM jsonb_to_recordset(p_items) AS x(id TEXT, quantity INTEGER)
     LOOP
-        -- Get product price
-        SELECT price INTO v_price FROM public.products WHERE id = v_item.id;
+        -- Get product price and names
+        SELECT price, name, name_en
+        INTO v_price, v_product_name, v_product_name_en
+        FROM public.products WHERE id = v_item.id;
         
         IF NOT FOUND THEN
             RAISE EXCEPTION 'Product with id % not found', v_item.id;
         END IF;
 
-        -- Insert order item
+        -- Insert order item with names snapshot (retains critical fix)
         INSERT INTO public.order_items (
-            order_id, product_id, quantity, price
+            order_id, product_id, product_name, product_name_en, quantity, price
         ) VALUES (
-            v_order_id, v_item.id, v_item.quantity, v_price
+            v_order_id, v_item.id, v_product_name, v_product_name_en, v_item.quantity, v_price
         );
 
         -- Add to total
@@ -83,3 +102,6 @@ BEGIN
     RETURN v_order_code;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 6. Grant execute permissions explicitly to prevent 404/403 errors
+GRANT EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO anon, authenticated, service_role;

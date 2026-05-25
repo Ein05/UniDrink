@@ -100,8 +100,10 @@ const Checkout = () => {
       setOrderTotal(cart.total);
       setSuccessCode(data as string);
       cart.clearCart();
-    } catch (err: unknown) {
-      setErrorMsg(err instanceof Error ? err.message : t.orderFailed);
+    } catch (err: any) {
+      console.error('Order creation error:', err);
+      const msg = err?.message || (err instanceof Error ? err.message : null) || t.orderFailed;
+      setErrorMsg(msg);
     } finally {
       setLoading(false);
     }

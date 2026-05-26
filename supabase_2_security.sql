@@ -115,6 +115,6 @@ GRANT SELECT, UPDATE ON public.orders        TO service_role;
 GRANT SELECT, INSERT  ON public.order_logs   TO service_role;
 GRANT SELECT          ON public.order_items  TO service_role;
 
--- categories: everyone can read, authenticated admins can upsert
+-- categories: everyone can read, authenticated admins can insert/update/delete
 GRANT SELECT ON public.categories TO anon, authenticated;
-GRANT INSERT, UPDATE ON public.categories TO authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.categories TO authenticated;

@@ -20,48 +20,76 @@ const Home = () => {
   const { lang, t } = useApp();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false); // đang chờ Supabase wake up trong nền
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'price_asc' | 'price_desc'>('price_asc');
   const [errorStatus, setErrorStatus] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
 
     async function fetchProducts() {
+      type FetchResult = { data: Product[] | null; error: { message: string } | null };
+
+      const supabasePromise = supabase
+        .from('products')
+        .select('*')
+        .eq('is_deleted', false) as unknown as Promise<FetchResult>;
+
+      // Sau 3 giây chưa có data → hiện demo data ngay, tiếp tục chờ Supabase trong nền
+      const quickFallbackPromise = new Promise<FetchResult>((resolve) =>
+        setTimeout(() => resolve({ data: null, error: { message: '__quick_fallback__' } }), 3000)
+      );
+
       try {
-        // Race giữa Supabase query và timeout 8 giây — tránh spinner vô tận
-        type FetchResult = { data: Product[] | null; error: { message: string } | null };
+        const { data, error } = await Promise.race([supabasePromise, quickFallbackPromise]);
 
-        const supabasePromise = Promise.resolve(
-          supabase.from('products').select('*').eq('is_deleted', false)
-        ) as Promise<FetchResult>;
+        if (cancelled) return;
 
-        const timeoutPromise = new Promise<FetchResult>((resolve) =>
-          setTimeout(() => resolve({ data: null, error: { message: '__timeout__' } }), 8000)
-        );
-
-        const { data, error } = await Promise.race([supabasePromise, timeoutPromise]);
-
-        if (error?.message === '__timeout__') {
-          // Supabase không phản hồi sau 8s — fallback demo data
-          console.warn('[UniDrink] Supabase timeout — showing demo data');
+        if (error?.message === '__quick_fallback__') {
+          // Supabase đang cold-start — hiện demo data ngay để user không chờ
+          console.warn('[UniDrink] Supabase chậm phản hồi — hiện demo data, đang chờ Supabase trong nền...');
           setProducts(defaultData as unknown as Product[]);
-          setErrorStatus(null);
+          setLoading(false);
+          setSyncing(true); // hiện indicator nhỏ "đang đồng bộ"
+
+          // Tiếp tục chờ Supabase thức dậy (có thể 30-60s do free tier cold start)
+          try {
+            const { data: realData, error: realError } = await supabasePromise;
+            if (cancelled) return;
+            if (!realError && realData && realData.length > 0) {
+              console.info('[UniDrink] Supabase đã thức dậy — cập nhật dữ liệu thật.');
+              setProducts(realData);
+              setErrorStatus(null);
+            }
+          } catch {
+            // Giữ nguyên demo data nếu Supabase vẫn không được
+          } finally {
+            if (!cancelled) setSyncing(false);
+          }
         } else if (error) {
           setErrorStatus(error.message);
+          setProducts(defaultData as unknown as Product[]);
+          setLoading(false);
         } else if (data) {
+          // Supabase phản hồi nhanh (đã ấm) → dùng data thật ngay
           setProducts(data);
           setErrorStatus(null);
+          setLoading(false);
         }
       } catch (err) {
         console.error('[UniDrink] fetchProducts error:', err);
-        setProducts(defaultData as unknown as Product[]);
-      } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setProducts(defaultData as unknown as Product[]);
+          setLoading(false);
+        }
       }
     }
+
     fetchProducts();
+    return () => { cancelled = true; };
   }, []);
 
   // Filter and sort client-side instantly
@@ -98,6 +126,16 @@ const Home = () => {
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100 text-center">
           {t.error} {errorStatus}
+          </div>
+        </div>
+      )}
+
+      {/* Syncing indicator — hiện khi Supabase đang cold-start trong nền */}
+      {syncing && (
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="flex items-center justify-center gap-2 bg-brand-cream border border-brand-beige text-brand-muted rounded-2xl px-6 py-3 text-[10px] font-black uppercase tracking-widest">
+            <div className="w-3 h-3 border-2 border-brand-beige border-t-brand-brown rounded-full animate-spin shrink-0" />
+            {lang === 'EN' ? 'Syncing with server…' : 'Đang đồng bộ dữ liệu thật…'}
           </div>
         </div>
       )}

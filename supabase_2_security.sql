@@ -36,37 +36,17 @@ GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
 
 -- 3. Create Policies
 
--- Admins Table: Only admins can view/manage
+-- Admins Table: Only admins can view/manage (Uses private.is_admin to prevent RLS recursion)
 CREATE POLICY "Allow admin access to admins" ON public.admins
     FOR ALL TO authenticated 
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    ) 
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    );
+    USING (private.is_admin()) 
+    WITH CHECK (private.is_admin());
 
--- Blacklist: Only admins can view/manage
+-- Blacklist: Only admins can view/manage (Uses private.is_admin)
 CREATE POLICY "Allow admin access to blacklisted_emails" ON public.blacklisted_emails
     FOR ALL TO authenticated 
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    ) 
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    );
+    USING (private.is_admin()) 
+    WITH CHECK (private.is_admin());
 
 -- Products: Everyone can read, only Admin can write
 CREATE POLICY "Allow public read access to products" ON public.products
@@ -74,21 +54,11 @@ CREATE POLICY "Allow public read access to products" ON public.products
 
 CREATE POLICY "Allow admin write access to products" ON public.products
     FOR ALL TO authenticated 
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    ) 
-    WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
-    );
+    USING (private.is_admin()) 
+    WITH CHECK (private.is_admin());
 
 -- Orders Policies
--- Read: Owner (matching email) or Admin can view
+-- Read: Owner (matching email) or Admin can view (Uses inline check querying admins, safe since admins policy does not recurse)
 CREATE POLICY "Allow read orders owned or admin" ON public.orders
     FOR SELECT USING (
         (customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))) 
@@ -102,10 +72,7 @@ CREATE POLICY "Allow read orders owned or admin" ON public.orders
 CREATE POLICY "Allow insert orders" ON public.orders
     FOR INSERT TO authenticated
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
+        private.is_admin()
         OR (
             customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
             AND total_price = 0
@@ -114,21 +81,15 @@ CREATE POLICY "Allow insert orders" ON public.orders
         )
     );
 
--- Update: Customers can update their own order (details and total). Admins can update anything.
+-- Update: Customers can update their own order. Admins can update anything.
 CREATE POLICY "Allow update orders" ON public.orders
     FOR UPDATE TO authenticated
     USING (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
+        private.is_admin()
         OR customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
     )
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
+        private.is_admin()
         OR customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
     );
 
@@ -146,10 +107,7 @@ CREATE POLICY "Allow read order_items if order is viewable" ON public.order_item
 CREATE POLICY "Allow insert order_items" ON public.order_items
     FOR INSERT TO authenticated
     WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
+        private.is_admin()
         OR (
             EXISTS (
                 SELECT 1 FROM public.orders o

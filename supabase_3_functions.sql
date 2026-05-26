@@ -140,7 +140,7 @@ GRANT EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) TO authenticat
 CREATE OR REPLACE FUNCTION public.check_is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
-    RETURN public.is_admin();
+    RETURN private.is_admin();
 END;
 $$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
 

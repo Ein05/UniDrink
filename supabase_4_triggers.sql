@@ -10,7 +10,7 @@ DECLARE
     v_changed_by TEXT := 'Customer';
 BEGIN
     -- Detect who performed the action
-    IF public.is_admin() THEN
+    IF private.is_admin() THEN
         v_changed_by := 'Admin';
     END IF;
 

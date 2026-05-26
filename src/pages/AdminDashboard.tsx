@@ -1092,16 +1092,6 @@ const AdminDashboard = () => {
                     <span>➕</span>
                     <span>{lang === 'EN' ? 'Add Category' : 'Thêm danh mục'}</span>
                   </button>
-                  <button
-                    type="button"
-                    onClick={seedDefaultCategories}
-                    disabled={savingCategory}
-                    className="px-5 py-2 rounded-2xl text-xs font-bold border border-brand-beige text-brand-muted hover:border-brand-caramel hover:text-brand-caramel transition-all flex items-center gap-1.5 disabled:opacity-50"
-                    title={lang === 'EN' ? 'Restore default categories (coffee, tea, teaMilk, juice, smoothie)' : 'Khôi phục danh mục mặc định'}
-                  >
-                    <span>↺</span>
-                    <span>{lang === 'EN' ? 'Restore Defaults' : 'Khôi phục mặc định'}</span>
-                  </button>
                 </div>
               )}
             </div>

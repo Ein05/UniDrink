@@ -1,11 +1,5 @@
 import { PayOS } from '@payos/node';
 
-const payOS = new PayOS({
-  clientId: process.env.PAYOS_CLIENT_ID || '',
-  apiKey: process.env.PAYOS_API_KEY || '',
-  checksumKey: process.env.PAYOS_CHECKSUM_KEY || '',
-});
-
 export default async function handler(req: any, res: any) {
   // CORS configuration
   res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -23,6 +17,24 @@ export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
+
+  // Initialize PayOS inside handler to avoid crash on missing env vars at startup
+  const missingVars = [
+    !process.env.PAYOS_CLIENT_ID && 'PAYOS_CLIENT_ID',
+    !process.env.PAYOS_API_KEY && 'PAYOS_API_KEY',
+    !process.env.PAYOS_CHECKSUM_KEY && 'PAYOS_CHECKSUM_KEY',
+  ].filter(Boolean);
+
+  if (missingVars.length > 0) {
+    console.error('[PayOS Create] Missing environment variables:', missingVars);
+    return res.status(500).json({ error: `Missing required environment variables: ${missingVars.join(', ')}` });
+  }
+
+  const payOS = new PayOS({
+    clientId: process.env.PAYOS_CLIENT_ID!,
+    apiKey: process.env.PAYOS_API_KEY!,
+    checksumKey: process.env.PAYOS_CHECKSUM_KEY!,
+  });
 
   try {
     const { orderCodeText, totalPrice } = req.body;

@@ -53,16 +53,21 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       animate={{ opacity: 1, y: 0 }}
       className="group bg-white p-3 md:p-4 rounded-[1.5rem] shadow-sm border border-brand-beige/50 hover:shadow-md transition-all flex items-center gap-3 md:gap-4 relative"
     >
-      <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0">
-        {product.image_url ? (
+      <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0 relative overflow-hidden">
+        {/* Fallback Emoji */}
+        <span className="absolute inset-0 flex items-center justify-center z-0">
+          {product.emoji || '☕'}
+        </span>
+        {product.image_url && (
           <img 
             src={product.image_url} 
             alt={name} 
-            className="w-full h-full object-cover rounded-2xl" 
+            className="w-full h-full object-cover rounded-2xl absolute inset-0 z-10 bg-[#F8F7F4]" 
             loading="lazy"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
           />
-        ) : (
-          <span>{product.emoji || '☕'}</span>
         )}
       </div>
 

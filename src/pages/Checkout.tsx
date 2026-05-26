@@ -27,14 +27,35 @@ const Checkout = () => {
     paymentMethod: 'cash' as 'cash' | 'transfer',
   });
   const [session, setSession] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   // authLoading chỉ true nếu có token trong localStorage (tức là có thể có session)
   // Nếu khách chưa đăng nhập thì không cần chờ — false ngay lập tức.
   const [authLoading, setAuthLoading] = useState(() => hasStoredSession());
 
   React.useEffect(() => {
     // onAuthStateChange fires INITIAL_SESSION immediately — no need for separate getSession call
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
+      if (session) {
+        const cached = sessionStorage.getItem('is_admin');
+        if (cached !== null) {
+          setIsAdmin(cached === 'true');
+        } else {
+          try {
+            const { data } = await withTimeout(
+              (supabase as any).rpc('check_is_admin'),
+              10000
+            ) as any;
+            setIsAdmin(!!data);
+            sessionStorage.setItem('is_admin', String(!!data));
+          } catch (e) {
+            console.error('Error checking admin status in Checkout:', e);
+            setIsAdmin(false);
+          }
+        }
+      } else {
+        setIsAdmin(false);
+      }
       setAuthLoading(false);
     });
     return () => subscription.unsubscribe();
@@ -215,93 +236,106 @@ const Checkout = () => {
           </div>
         )}
 
-        <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.emailLabel}</label>
-            <input
-              disabled
-              className="w-full bg-[#FAF9F5] border border-brand-beige rounded-2xl px-6 py-4 outline-none font-medium text-brand-muted cursor-not-allowed opacity-80"
-              value={session?.user?.email || ''}
-            />
+        {isAdmin ? (
+          <div className="bg-amber-50 border border-amber-200 text-amber-900 p-8 rounded-[2rem] space-y-4">
+            <h3 className="text-lg font-bold font-serif">
+              {lang === 'EN' ? 'Admin Account Restricted' : 'Tài khoản Admin bị giới hạn'}
+            </h3>
+            <p className="text-sm leading-relaxed">
+              {lang === 'EN'
+                ? 'Admin accounts cannot place orders to prevent data conflict. Please sign out and use a customer account to order.'
+                : 'Tài khoản Admin không được phép đặt hàng để tránh xung đột dữ liệu hệ thống. Vui lòng đăng xuất hoặc sử dụng tài khoản khách hàng thông thường.'}
+            </p>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        ) : (
+          <form ref={formRef} onSubmit={handleSubmit} className="space-y-8">
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.name}</label>
+              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.emailLabel}</label>
+              <input
+                disabled
+                className="w-full bg-[#FAF9F5] border border-brand-beige rounded-2xl px-6 py-4 outline-none font-medium text-brand-muted cursor-not-allowed opacity-80"
+                value={session?.user?.email || ''}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.name}</label>
+                <input
+                  required
+                  className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
+                  placeholder={lang === 'EN' ? "Ex: John Doe" : "Ex: Nguyễn Văn A"}
+                  value={formData.name}
+                  onChange={e => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.phone}</label>
+                <input
+                  required
+                  type="tel"
+                  minLength={10}
+                  maxLength={11}
+                  className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
+                  placeholder="Ex: 0912345678"
+                  value={formData.phone}
+                  onChange={e => {
+                    const val = e.target.value.replace(/\D/g, '').slice(0, 11);
+                    setFormData({ ...formData, phone: val });
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.address}</label>
               <input
                 required
                 className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-                placeholder={lang === 'EN' ? "Ex: John Doe" : "Ex: Nguyễn Văn A"}
-                value={formData.name}
-                onChange={e => setFormData({ ...formData, name: e.target.value })}
+                placeholder={lang === 'EN' ? "Ex: Room 502, Building A1, Dept of IT" : "Ex: Phòng 502, Tòa A1, Khoa CNTT"}
+                value={formData.address}
+                onChange={e => setFormData({ ...formData, address: e.target.value })}
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.phone}</label>
-              <input
-                required
-                type="tel"
-                minLength={10}
-                maxLength={11}
+              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.note}</label>
+              <textarea
                 className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-                placeholder="Ex: 0912345678"
-                value={formData.phone}
-                onChange={e => {
-                  const val = e.target.value.replace(/\D/g, '').slice(0, 11);
-                  setFormData({ ...formData, phone: val });
-                }}
+                rows={3}
+                placeholder={lang === 'EN' ? "Ex: No ice, deliver before 10 AM..." : "Ex: Không lấy đá, ship trước 10h..."}
+                value={formData.note}
+                onChange={e => setFormData({ ...formData, note: e.target.value })}
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.address}</label>
-            <input
-              required
-              className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-              placeholder={lang === 'EN' ? "Ex: Room 502, Building A1, Dept of IT" : "Ex: Phòng 502, Tòa A1, Khoa CNTT"}
-              value={formData.address}
-              onChange={e => setFormData({ ...formData, address: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.note}</label>
-            <textarea
-              className="w-full bg-white border border-brand-beige rounded-2xl px-6 py-4 focus:ring-2 focus:ring-brand-caramel outline-none font-medium text-brand-ink transition-all"
-              rows={3}
-              placeholder={lang === 'EN' ? "Ex: No ice, deliver before 10 AM..." : "Ex: Không lấy đá, ship trước 10h..."}
-              value={formData.note}
-              onChange={e => setFormData({ ...formData, note: e.target.value })}
-            />
-          </div>
-
-          <div className="space-y-4">
-            <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.paymentMethod}</label>
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, paymentMethod: 'cash' })}
-                className={cn(
-                  "py-4 rounded-2xl border-2 font-black uppercase tracking-widest text-[10px] transition-all",
-                  formData.paymentMethod === 'cash' ? "bg-brand-brown border-brand-brown text-white shadow-md" : "bg-white border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown"
-                )}
-              >
-                {t.cash}
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, paymentMethod: 'transfer' })}
-                className={cn(
-                  "py-4 rounded-2xl border-2 font-black uppercase tracking-widest text-[10px] transition-all",
-                  formData.paymentMethod === 'transfer' ? "bg-brand-brown border-brand-brown text-white shadow-md" : "bg-white border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown"
-                )}
-              >
-                {t.transfer}
-              </button>
+            <div className="space-y-4">
+              <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2">{t.paymentMethod}</label>
+              <div className="grid grid-cols-2 gap-4">
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, paymentMethod: 'cash' })}
+                  className={cn(
+                    "py-4 rounded-2xl border-2 font-black uppercase tracking-widest text-[10px] transition-all",
+                    formData.paymentMethod === 'cash' ? "bg-brand-brown border-brand-brown text-white shadow-md" : "bg-white border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown"
+                  )}
+                >
+                  {t.cash}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, paymentMethod: 'transfer' })}
+                  className={cn(
+                    "py-4 rounded-2xl border-2 font-black uppercase tracking-widest text-[10px] transition-all",
+                    formData.paymentMethod === 'transfer' ? "bg-brand-brown border-brand-brown text-white shadow-md" : "bg-white border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown"
+                  )}
+                >
+                  {t.transfer}
+                </button>
+              </div>
             </div>
-          </div>
-        </form>
+          </form>
+        )}
       </div>
 
       <aside className="w-full lg:w-96">
@@ -345,7 +379,7 @@ const Checkout = () => {
 
           <button
             onClick={() => formRef.current?.requestSubmit()}
-            disabled={loading}
+            disabled={loading || isAdmin}
             className="w-full py-5 bg-brand-brown text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-brand-brown/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {loading

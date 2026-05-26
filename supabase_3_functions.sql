@@ -66,6 +66,11 @@ BEGIN
         RAISE EXCEPTION 'Email đặt hàng không khớp với tài khoản đăng nhập.';
     END IF;
 
+    -- Block Admin Orders
+    IF private.is_admin() THEN
+        RAISE EXCEPTION 'Tài khoản Admin không được phép đặt hàng.';
+    END IF;
+
     -- Generate sequential code
     v_order_code := public.generate_order_code();
 

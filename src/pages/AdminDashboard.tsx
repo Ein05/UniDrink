@@ -6,6 +6,31 @@ import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import type { Order, Product, OrderLog, Category } from '../types';
 
+const convertDriveUrl = (url: string): string => {
+  if (!url) return '';
+  const trimmed = url.trim();
+  if (!trimmed.includes('drive.google.com')) return trimmed;
+
+  try {
+    const fileDMatch = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (fileDMatch && fileDMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${fileDMatch[1]}`;
+    }
+
+    const urlObj = new URL(trimmed);
+    const id = urlObj.searchParams.get('id');
+    if (id) {
+      return `https://lh3.googleusercontent.com/d/${id}`;
+    }
+  } catch (e) {
+    const idMatch = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      return `https://lh3.googleusercontent.com/d/${idMatch[1]}`;
+    }
+  }
+  return trimmed;
+};
+
 type DayReport = {
   date: string;
   totalOrders: number;
@@ -30,10 +55,13 @@ const AdminDashboard = () => {
   const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [blacklistedEmails, setBlacklistedEmails] = useState<string[]>([]);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
 
   const fetchOrderLogs = async (orderId: string) => {
     if (expandedLogs[orderId]) {
@@ -334,6 +362,82 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleImageUpload = async (file: File) => {
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert(lang === 'EN' ? 'Please upload an image file!' : 'Vui lòng chọn tệp hình ảnh!');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert(lang === 'EN' ? 'Image size must be under 5MB!' : 'Dung lượng ảnh phải nhỏ hơn 5MB!');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setUploadError(null);
+
+    try {
+      const fileExt = file.name.split('.').pop() || 'png';
+      const cleanFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+      const filePath = `products/${cleanFileName}`;
+
+      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL;
+      const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY;
+
+      let publicUrl = '';
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const mockCategoriesImages: Record<string, string> = {
+          coffee: 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=400&q=80',
+          tea: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=400&q=80',
+          teaMilk: 'https://images.unsplash.com/photo-1541658016709-82535e94bc69?w=400&q=80',
+          juice: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?w=400&q=80',
+          smoothie: 'https://images.unsplash.com/photo-1553530979-7ee52a2670c4?w=400&q=80',
+        };
+        const cat = editingProduct?.category || 'coffee';
+        publicUrl = mockCategoriesImages[cat] || 'https://images.unsplash.com/photo-1497515114629-f71d768fd07c?w=400&q=80';
+      } else {
+        const { error } = await supabase.storage
+          .from('product-images')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
+
+        if (error) {
+          throw error;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(filePath);
+
+        if (!urlData || !urlData.publicUrl) {
+          throw new Error('Could not retrieve public URL for the uploaded image.');
+        }
+
+        publicUrl = urlData.publicUrl;
+      }
+
+      setEditingProduct(prev => prev ? { ...prev, image_url: publicUrl } : null);
+
+      const inputEl = document.querySelector('input[name="image_url"]') as HTMLInputElement;
+      if (inputEl) {
+        inputEl.value = publicUrl;
+      }
+
+    } catch (err: any) {
+      console.error('Error uploading image:', err);
+      const errMsg = err.message || 'Unknown error';
+      setUploadError(errMsg);
+      alert((lang === 'EN' ? 'Failed to upload image: ' : 'Lỗi tải ảnh lên: ') + errMsg);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   // Cập nhật thông tin sản phẩm (optimistic + rollback)
   const updateProduct = async (fields: Partial<Product>) => {
     if (!editingProduct) return;
@@ -354,6 +458,73 @@ const AdminDashboard = () => {
       alert(t.productUpdateError + error.message);
     }
     setSavingProduct(false);
+  };
+
+  // Thêm sản phẩm mới (optimistic + rollback)
+  const addProduct = async (product: Omit<Product, 'id' | 'created_at'>) => {
+    setSavingProduct(true);
+    
+    // Tạo ID thân thiện dựa trên tên sản phẩm dạng slug
+    const nameSlug = product.name
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '') // Bỏ dấu
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-z0-9]+/g, '-') // Đổi ký tự đặc biệt thành gạch ngang
+      .replace(/^-+|-+$/g, ''); // Cắt gạch ngang ở đầu/cuối
+    
+    const randomId = Math.random().toString(36).substring(2, 6);
+    const newId = `${product.category}-${nameSlug || 'drink'}-${randomId}`;
+    const newProduct: Product = {
+      ...product,
+      id: newId,
+      created_at: new Date().toISOString(),
+    };
+
+    // Optimistic update
+    setProducts(prev => [...prev, newProduct]);
+    setEditingProduct(null);
+
+    const { error } = await (supabase as any)
+      .from('products')
+      .insert(newProduct);
+
+    if (error) {
+      // Rollback
+      setProducts(prev => prev.filter(p => p.id !== newId));
+      alert((lang === 'EN' ? 'Failed to add product: ' : 'Lỗi thêm sản phẩm mới: ') + error.message);
+    }
+    setSavingProduct(false);
+  };
+
+  // Thêm danh mục mới (optimistic + rollback)
+  const addCategory = async (newCat: Category) => {
+    setSavingCategory(true);
+    const cleanId = newCat.id.trim();
+    if (categories.some(c => c.id === cleanId)) {
+      alert(lang === 'EN' ? 'Category ID already exists!' : 'Mã danh mục đã tồn tại!');
+      setSavingCategory(false);
+      return;
+    }
+
+    // Optimistic update
+    setCategories(prev => [...prev, newCat]);
+
+    const { error } = await (supabase as any)
+      .from('categories')
+      .insert(newCat);
+
+    if (error) {
+      // Rollback
+      setCategories(prev => prev.filter(c => c.id !== cleanId));
+      alert((lang === 'EN' ? 'Failed to add category: ' : 'Lỗi thêm danh mục: ') + error.message);
+    } else {
+      setCategories(prev => {
+        localStorage.setItem('unidrink_categories', JSON.stringify(prev));
+        return prev;
+      });
+    }
+    setSavingCategory(false);
   };
 
   const saveCategory = async (updated: Category) => {
@@ -710,17 +881,106 @@ const AdminDashboard = () => {
                   )}
                 </div>
               ))}
+              {/* Add Category Button or Inline Form */}
+              {isAddingCategory ? (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const fd = new FormData(e.currentTarget);
+                    const id = (fd.get('cat_id') as string).trim();
+                    const name_vi = (fd.get('name_vi') as string).trim();
+                    const name_en = (fd.get('name_en') as string).trim();
+                    if (!id || !name_vi || !name_en) return;
+                    await addCategory({ id, name_vi, name_en });
+                    setIsAddingCategory(false);
+                  }}
+                  className="flex items-center gap-2 bg-brand-cream border border-brand-caramel/50 rounded-2xl px-3 py-2"
+                >
+                  <input
+                    required
+                    name="cat_id"
+                    placeholder="ID (e.g. dessert)"
+                    className="w-28 bg-white border border-brand-beige rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-brown"
+                  />
+                  <input
+                    required
+                    name="name_vi"
+                    placeholder="Tên VI"
+                    className="w-20 bg-white border border-brand-beige rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-brown"
+                  />
+                  <input
+                    required
+                    name="name_en"
+                    placeholder="EN Name"
+                    className="w-20 bg-white border border-brand-beige rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-brown"
+                  />
+                  <button type="submit" disabled={savingCategory} className="text-[10px] font-black uppercase tracking-widest bg-brand-brown text-white px-3 py-1 rounded-lg hover:bg-brand-ink transition-colors disabled:opacity-50">
+                    {savingCategory ? '...' : (lang === 'EN' ? 'Add' : 'Thêm')}
+                  </button>
+                  <button type="button" onClick={() => setIsAddingCategory(false)} className="text-[10px] font-black text-brand-muted hover:text-brand-ink">
+                    ✕
+                  </button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingCategory(true)}
+                  className="px-5 py-2 rounded-2xl text-xs font-bold border-2 border-dashed border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown transition-all flex items-center gap-1.5"
+                >
+                  <span>➕</span>
+                  <span>{lang === 'EN' ? 'Add Category' : 'Thêm danh mục'}</span>
+                </button>
+              )}
             </div>
           </div>
+
+          {/* Add New Product Card */}
+          <button
+            onClick={() => setEditingProduct({
+              id: 'NEW_PRODUCT',
+              name: '',
+              name_en: '',
+              price: 0,
+              category: categories[0]?.id || 'coffee',
+              emoji: '☕',
+              description: '',
+              description_en: '',
+              image_url: '',
+              is_available: true,
+              is_deleted: false,
+              created_at: new Date().toISOString()
+            })}
+            className="bg-white p-5 rounded-[2rem] border-2 border-dashed border-brand-beige flex items-center justify-center gap-4 hover:border-brand-brown hover:bg-brand-cream/10 transition-all group min-h-[106px] text-left w-full"
+          >
+            <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0 group-hover:scale-105 transition-transform">
+              <span>➕</span>
+            </div>
+            <div className="grow">
+              <h3 className="font-serif font-black text-brand-ink text-lg leading-tight">
+                {lang === 'EN' ? 'Add New Product' : 'Thêm đồ uống mới'}
+              </h3>
+              <p className="text-[10px] text-brand-muted uppercase tracking-widest font-bold">
+                {lang === 'EN' ? 'Create a new signature drink' : 'Tạo mới sản phẩm đồ uống'}
+              </p>
+            </div>
+          </button>
 
           {/* Product List */}
           {products.map(product => (
               <div key={product.id} className="bg-white p-5 rounded-[2rem] border border-brand-beige flex items-center gap-4 hover:shadow-md transition-all group">
-                <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden">
-                  {product.image_url ? (
-                    <img src={product.image_url} alt={product.name} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
-                  ) : (
-                    <span>{product.emoji || '☕'}</span>
+                <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden relative">
+                  {/* Fallback Emoji */}
+                  <span className="absolute inset-0 flex items-center justify-center z-0">
+                    {product.emoji || '☕'}
+                  </span>
+                  {product.image_url && (
+                    <img 
+                      src={product.image_url} 
+                      alt={product.name} 
+                      className="w-full h-full object-cover rounded-2xl absolute inset-0 z-10 bg-[#F8F7F4]" 
+                      loading="lazy" 
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
                   )}
                 </div>
                 <div className="grow min-w-0">
@@ -913,16 +1173,31 @@ const AdminDashboard = () => {
 
             {/* Header với live preview */}
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-white border-2 border-brand-beige rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden">
-                {editingProduct.image_url ? (
-                  <img src={editingProduct.image_url} alt="" className="w-full h-full object-cover rounded-2xl" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ) : (
-                  <span>{editingProduct.emoji || '☕'}</span>
+              <div className="w-16 h-16 bg-white border-2 border-brand-beige rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden relative">
+                {/* Fallback Emoji */}
+                <span className="absolute inset-0 flex items-center justify-center z-0">
+                  {editingProduct.emoji || '☕'}
+                </span>
+                {editingProduct.image_url && (
+                  <img 
+                    src={editingProduct.image_url} 
+                    alt="" 
+                    className="w-full h-full object-cover rounded-2xl absolute inset-0 z-10 bg-white" 
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
+                  />
                 )}
               </div>
               <div>
-                <h3 className="text-xl font-serif font-black text-brand-ink">{t.editProduct}</h3>
-                <p className="text-[10px] text-brand-muted uppercase tracking-widest font-bold">{editingProduct.name}</p>
+                <h3 className="text-xl font-serif font-black text-brand-ink">
+                  {editingProduct.id === 'NEW_PRODUCT'
+                    ? (lang === 'EN' ? 'Add New Product' : 'Thêm sản phẩm mới')
+                    : t.editProduct}
+                </h3>
+                <p className="text-[10px] text-brand-muted uppercase tracking-widest font-bold">
+                  {editingProduct.id === 'NEW_PRODUCT'
+                    ? (lang === 'EN' ? 'New Product' : 'Sản phẩm mới')
+                    : (lang === 'EN' ? editingProduct.name_en || editingProduct.name : editingProduct.name)}
+                </p>
               </div>
             </div>
 
@@ -930,18 +1205,34 @@ const AdminDashboard = () => {
               onSubmit={async (e) => {
                 e.preventDefault();
                 const fd = new FormData(e.currentTarget);
-                const updatedFields: Partial<Product> = {
-                  name: (fd.get('name') as string).trim(),
+                const name = (fd.get('name') as string).trim();
+                const price = parseFloat(fd.get('price') as string);
+                const category = (fd.get('category') as string).trim();
+                const is_available = fd.get('is_available') === 'true';
+
+                if (!name || isNaN(price) || !category) {
+                  alert(lang === 'EN' ? 'Please fill in all required fields!' : 'Vui lòng điền đầy đủ các thông tin bắt buộc!');
+                  return;
+                }
+
+                const productFields = {
+                  name,
                   name_en: (fd.get('name_en') as string).trim() || undefined,
-                  price: parseFloat(fd.get('price') as string),
-                  category: (fd.get('category') as string).trim(),
+                  price,
+                  category,
                   emoji: (fd.get('emoji') as string).trim() || undefined,
                   description: (fd.get('description') as string).trim() || undefined,
                   description_en: (fd.get('description_en') as string).trim() || undefined,
                   image_url: (fd.get('image_url') as string).trim() || undefined,
-                  is_available: fd.get('is_available') === 'true',
+                  is_available,
+                  is_deleted: false,
                 };
-                await updateProduct(updatedFields);
+
+                if (editingProduct.id === 'NEW_PRODUCT') {
+                  await addProduct(productFields);
+                } else {
+                  await updateProduct(productFields);
+                }
               }}
               className="space-y-5"
             >
@@ -1037,20 +1328,77 @@ const AdminDashboard = () => {
                 />
               </div>
 
-              {/* Ảnh URL với live preview */}
-              <div className="space-y-1">
-                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">{t.productImageUrl}</label>
+              {/* Ảnh sản phẩm (Chỉ Upload trực tiếp) */}
+              <div className="space-y-3">
+                <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted block">
+                  {lang === 'EN' ? 'Product Image' : 'Hình ảnh sản phẩm'}
+                </label>
+
+                {/* Hidden input to pass value in FormData */}
                 <input
+                  type="hidden"
                   name="image_url"
-                  type="url"
-                  defaultValue={editingProduct.image_url || ''}
-                  onChange={(e) => setEditingProduct(prev => prev ? { ...prev, image_url: e.target.value } : null)}
-                  className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
-                  placeholder="https://..."
+                  value={editingProduct.image_url || ''}
                 />
-                <p className="text-[10px] text-brand-muted">
-                  {lang === 'EN' ? 'Leave blank to use emoji instead. Preview updates live above.' : 'Bỏ trống để dùng emoji. Preview cập nhật trực tiếp ở trên.'}
-                </p>
+
+                {/* Drag and drop upload zone */}
+                <div
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={async (e) => {
+                    e.preventDefault();
+                    if (isUploadingImage) return;
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) await handleImageUpload(file);
+                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-2xl p-6 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-2",
+                    isUploadingImage 
+                      ? "border-brand-caramel/50 bg-brand-cream/30 cursor-not-allowed animate-pulse" 
+                      : "border-brand-beige hover:border-brand-brown hover:bg-brand-cream/10 bg-white"
+                  )}
+                  onClick={() => {
+                    if (isUploadingImage) return;
+                    document.getElementById('product-image-file-input')?.click();
+                  }}
+                >
+                  <input
+                    id="product-image-file-input"
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) await handleImageUpload(file);
+                    }}
+                  />
+                  {isUploadingImage ? (
+                    <div className="flex flex-col items-center gap-2 text-brand-brown">
+                      <div className="w-8 h-8 border-4 border-brand-beige border-t-brand-brown rounded-full animate-spin" />
+                      <p className="text-xs font-bold">{t.productImageUploading}</p>
+                    </div>
+                  ) : (
+                    <div className="text-brand-muted flex flex-col items-center gap-2">
+                      <span className="text-3xl">📸</span>
+                      <p className="text-xs font-bold text-brand-ink">
+                        {t.productImageDragDrop}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Remove Image button if image exists */}
+                {editingProduct.image_url && (
+                  <div className="flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => setEditingProduct(prev => prev ? { ...prev, image_url: undefined } : null)}
+                      className="text-[10px] font-black uppercase tracking-widest text-red-500 hover:text-red-700 transition-colors flex items-center gap-1.5"
+                    >
+                      <span>🗑</span>
+                      {lang === 'EN' ? 'Remove Image (use Emoji)' : 'Xóa ảnh để dùng Emoji'}
+                    </button>
+                  </div>
+                )}
               </div>
 
               {/* Mô tả VI / EN */}

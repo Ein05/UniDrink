@@ -114,7 +114,7 @@ CREATE POLICY "Allow insert orders" ON public.orders
         )
     );
 
--- Update: Customers can update their own order's total_price, but it must match the sum of order_items. Admins can update anything.
+-- Update: Customers can update their own order (details and total). Admins can update anything.
 CREATE POLICY "Allow update orders" ON public.orders
     FOR UPDATE TO authenticated
     USING (
@@ -129,16 +129,7 @@ CREATE POLICY "Allow update orders" ON public.orders
             SELECT 1 FROM public.admins
             WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
         )
-        OR (
-            customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
-            AND status = OLD.status
-            AND is_paid = OLD.is_paid
-            AND total_price = (
-                SELECT COALESCE(SUM(price * quantity), 0)
-                FROM public.order_items
-                WHERE order_items.order_id = orders.id
-            )
-        )
+        OR customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
     );
 
 -- Order Items Policies

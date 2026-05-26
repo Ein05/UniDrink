@@ -19,6 +19,28 @@ BEGIN
         VALUES (NEW.id, 'create', v_changed_by, 'Đơn hàng được khởi tạo thành công.');
 
     ELSIF (TG_OP = 'UPDATE') THEN
+        -- Secure update validation for customer roles (skip for admin)
+        IF auth.role() = 'authenticated' AND NOT private.is_admin() THEN
+            -- 1. Customers cannot change status
+            IF OLD.status IS DISTINCT FROM NEW.status THEN
+                RAISE EXCEPTION 'Khách hàng không có quyền thay đổi trạng thái đơn hàng.';
+            END IF;
+
+            -- 2. Customers cannot change is_paid
+            IF OLD.is_paid IS DISTINCT FROM NEW.is_paid THEN
+                RAISE EXCEPTION 'Khách hàng không có quyền thay đổi trạng thái thanh toán.';
+            END IF;
+
+            -- 3. Customers can only update total_price if it matches the sum of their order items
+            IF OLD.total_price IS DISTINCT FROM NEW.total_price AND NEW.total_price IS DISTINCT FROM (
+                SELECT COALESCE(SUM(price * quantity), 0)
+                FROM public.order_items
+                WHERE order_id = NEW.id
+            ) THEN
+                RAISE EXCEPTION 'Tổng tiền đơn hàng không chính xác.';
+            END IF;
+        END IF;
+
         -- Order status changed
         IF OLD.status IS DISTINCT FROM NEW.status THEN
             DECLARE

@@ -305,18 +305,20 @@ const AdminDashboard = () => {
   // Cập nhật thông tin sản phẩm (optimistic + rollback)
   const updateProduct = async (fields: Partial<Product>) => {
     if (!editingProduct) return;
-    const previous = products.find(p => p.id === editingProduct.id);
+    // FIX: capture id trước khi setEditingProduct(null) để tránh stale closure
+    const targetProductId = editingProduct.id;
+    const previous = products.find(p => p.id === targetProductId);
     setSavingProduct(true);
-    setProducts(prev => prev.map(p => p.id === editingProduct.id ? { ...p, ...fields } : p));
+    setProducts(prev => prev.map(p => p.id === targetProductId ? { ...p, ...fields } : p));
     setEditingProduct(null);
 
     const { error } = await (supabase as any)
       .from('products')
       .update(fields)
-      .eq('id', editingProduct.id);
+      .eq('id', targetProductId);
 
     if (error) {
-      if (previous) setProducts(prev => prev.map(p => p.id === editingProduct.id ? previous : p));
+      if (previous) setProducts(prev => prev.map(p => p.id === targetProductId ? previous : p));
       alert(t.productUpdateError + error.message);
     }
     setSavingProduct(false);

@@ -159,6 +159,7 @@ export const translations = {
     adminOrDivider: "hoặc",
     adminNotAuthorized: "Tài khoản này không có quyền truy cập Admin.",
     adminConfirmEmail: "Vui lòng kiểm tra email để xác nhận tài khoản.",
+    error: "Có lỗi xảy ra:",
   },
   EN: {
     brand: "UniDrink",
@@ -295,7 +296,9 @@ export const translations = {
     productEmoji: "Emoji / Icon",
     productDesc: "Description (Vietnamese)",
     productDescEn: "Description (English)",
+    productImageUrl: "Image URL",
     productSaveSuccess: "Product updated successfully!",
+    error: "An error occurred:",
     orderCooldown: "Please wait 1 minute before placing another order.",
     signInWithGoogle: "Sign in with Google",
     googleLoginRequired: "Please sign in with Google to proceed with checkout",

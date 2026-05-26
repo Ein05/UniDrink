@@ -82,7 +82,7 @@ const Home = () => {
       {errorStatus && (
         <div className="max-w-4xl mx-auto px-4">
           <div className="bg-red-50 text-red-600 p-4 rounded-2xl text-sm font-bold border border-red-100 text-center">
-            {t.error || 'Có lỗi xảy ra: '} {errorStatus}
+          {t.error} {errorStatus}
           </div>
         </div>
       )}

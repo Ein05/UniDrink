@@ -27,15 +27,32 @@ const TrackOrder = () => {
 
   /* ── Auth ── */
   useEffect(() => {
+    let resolved = false;
+
+    // Cooldown timeout 4s để giải phóng màn hình loading nếu Supabase phản hồi chậm
+    const timeout = setTimeout(() => {
+      if (!resolved) {
+        console.warn('[UniDrink] Session check timed out, continuing with null session.');
+        setAuthLoading(false);
+      }
+    }, 4000);
+
     supabase.auth.getSession().then(({ data: { session } }) => {
+      resolved = true;
+      clearTimeout(timeout);
       setSession(session);
       setAuthLoading(false);
     });
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      resolved = true;
+      clearTimeout(timeout);
       setSession(session);
       setAuthLoading(false);
     });
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(timeout);
+      subscription.unsubscribe();
+    };
   }, []);
 
   /* ── Fetch orders khi có session ── */

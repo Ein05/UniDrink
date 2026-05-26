@@ -3,8 +3,18 @@
 -- Run this second to configure strict read/write policies on all tables.
 -- ============================================================
 
--- 1. Helper Admin Checking Function
-DROP FUNCTION IF EXISTS public.is_admin();
+-- 1. Clean up existing policies first to avoid dependency blocks
+DROP POLICY IF EXISTS "Allow admin access to admins" ON public.admins;
+DROP POLICY IF EXISTS "Allow admin access to blacklisted_emails" ON public.blacklisted_emails;
+DROP POLICY IF EXISTS "Allow public read access to products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
+DROP POLICY IF EXISTS "Allow read orders owned or admin" ON public.orders;
+DROP POLICY IF EXISTS "Allow admin update orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow read order_items if order is viewable" ON public.order_items;
+DROP POLICY IF EXISTS "Allow read order_logs if order is viewable" ON public.order_logs;
+
+-- 2. Helper Admin Checking Function
+DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
 
 CREATE SCHEMA IF NOT EXISTS private;
 
@@ -21,17 +31,7 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 GRANT USAGE ON SCHEMA private TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
 
--- 3. Clean up existing policies if any
-DROP POLICY IF EXISTS "Allow admin access to admins" ON public.admins;
-DROP POLICY IF EXISTS "Allow admin access to blacklisted_emails" ON public.blacklisted_emails;
-DROP POLICY IF EXISTS "Allow public read access to products" ON public.products;
-DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
-DROP POLICY IF EXISTS "Allow read orders owned or admin" ON public.orders;
-DROP POLICY IF EXISTS "Allow admin update orders" ON public.orders;
-DROP POLICY IF EXISTS "Allow read order_items if order is viewable" ON public.order_items;
-DROP POLICY IF EXISTS "Allow read order_logs if order is viewable" ON public.order_logs;
-
--- 4. Create Policies
+-- 3. Create Policies
 
 -- Admins Table: Only admins can view/manage
 CREATE POLICY "Allow admin access to admins" ON public.admins

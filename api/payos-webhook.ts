@@ -78,7 +78,11 @@ export default async function handler(req: any, res: any) {
 
     if (fetchError || !order) {
       console.warn(`[PayOS Webhook] Order ${orderCodeText} not found in DB:`, fetchError);
-      return res.status(200).json({ success: true, message: `Order ${orderCodeText} not found, acknowledged.` });
+      return res.status(200).json({ 
+        success: true, 
+        message: `Order ${orderCodeText} not found, acknowledged.`,
+        debug: fetchError ? { message: fetchError.message, details: fetchError.details, hint: fetchError.hint } : null
+      });
     }
 
     // 5. Check if the order is already marked as paid (Idempotency check)

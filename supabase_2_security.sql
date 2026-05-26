@@ -9,8 +9,11 @@ DROP POLICY IF EXISTS "Allow admin access to blacklisted_emails" ON public.black
 DROP POLICY IF EXISTS "Allow public read access to products" ON public.products;
 DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
 DROP POLICY IF EXISTS "Allow read orders owned or admin" ON public.orders;
+DROP POLICY IF EXISTS "Allow insert orders" ON public.orders;
+DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow admin update orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow read order_items if order is viewable" ON public.order_items;
+DROP POLICY IF EXISTS "Allow insert order_items" ON public.order_items;
 DROP POLICY IF EXISTS "Allow read order_logs if order is viewable" ON public.order_logs;
 
 -- 2. Helper Admin Checking Function
@@ -31,6 +34,19 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 GRANT USAGE ON SCHEMA private TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
 
+-- 2b. Helper Blacklist Checking Function (Runs securely as SECURITY DEFINER in private schema)
+CREATE OR REPLACE FUNCTION private.is_email_blacklisted(p_email TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1 FROM public.blacklisted_emails
+        WHERE email = LOWER(TRIM(p_email))
+    );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+GRANT EXECUTE ON FUNCTION private.is_email_blacklisted(TEXT) TO authenticated, service_role;
+
 -- 3. Create Policies
 
 -- Admins Table: Only admins can view/manage
@@ -48,21 +64,74 @@ CREATE POLICY "Allow public read access to products" ON public.products
 CREATE POLICY "Allow admin write access to products" ON public.products
     FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
 
--- Orders: Owner (matching email) can view, Admin can view and update. Direct inserts prohibited.
+-- Orders Policies
+-- Read: Owner (matching email) or Admin can view
 CREATE POLICY "Allow read orders owned or admin" ON public.orders
     FOR SELECT USING (
         (customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))) OR private.is_admin()
     );
 
-CREATE POLICY "Allow admin update orders" ON public.orders
-    FOR UPDATE TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+-- Insert: Customers can insert pending, unpaid orders with total_price = 0. Admin can insert anything.
+CREATE POLICY "Allow insert orders" ON public.orders
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        private.is_admin()
+        OR (
+            customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
+            AND total_price = 0
+            AND status = 'pending'
+            AND is_paid = false
+        )
+    );
 
--- Order Items: Viewable if parent order is viewable
+-- Update: Customers can update their own order's total_price, but it must match the sum of order_items. Admins can update anything.
+CREATE POLICY "Allow update orders" ON public.orders
+    FOR UPDATE TO authenticated
+    USING (
+        private.is_admin()
+        OR customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
+    )
+    WITH CHECK (
+        private.is_admin()
+        OR (
+            customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
+            AND status = OLD.status
+            AND is_paid = OLD.is_paid
+            AND total_price = (
+                SELECT COALESCE(SUM(price * quantity), 0)
+                FROM public.order_items
+                WHERE order_items.order_id = orders.id
+            )
+        )
+    );
+
+-- Order Items Policies
+-- Read: Viewable if parent order is viewable
 CREATE POLICY "Allow read order_items if order is viewable" ON public.order_items
     FOR SELECT USING (
         EXISTS (
             SELECT 1 FROM public.orders
             WHERE orders.id = order_items.order_id
+        )
+    );
+
+-- Insert: Customers can insert items for their own orders if the price matches the official product price. Admin can insert anything.
+CREATE POLICY "Allow insert order_items" ON public.order_items
+    FOR INSERT TO authenticated
+    WITH CHECK (
+        private.is_admin()
+        OR (
+            EXISTS (
+                SELECT 1 FROM public.orders o
+                WHERE o.id = order_items.order_id
+                  AND o.customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))
+            )
+            AND EXISTS (
+                SELECT 1 FROM public.products p
+                WHERE p.id = order_items.product_id
+                  AND p.price = order_items.price
+                  AND p.is_deleted = false
+              )
         )
     );
 
@@ -92,6 +161,10 @@ GRANT SELECT ON public.order_logs    TO authenticated;
 GRANT SELECT ON public.admins        TO authenticated;
 GRANT SELECT, INSERT, DELETE ON public.blacklisted_emails TO authenticated;
 
--- authenticated admins can update orders and products (RLS enforces is_admin check)
-GRANT UPDATE ON public.orders   TO authenticated;
+-- authenticated customers/admins get write access for ordering workflow
+GRANT INSERT, UPDATE ON public.orders TO authenticated;
+GRANT INSERT ON public.order_items TO authenticated;
+GRANT USAGE, SELECT ON SEQUENCE public.order_code_seq TO authenticated;
+
+-- authenticated admins can update products (RLS enforces is_admin check)
 GRANT UPDATE ON public.products TO authenticated;

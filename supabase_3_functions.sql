@@ -31,10 +31,10 @@ BEGIN
     new_code := 'DH' || LPAD(next_seq::TEXT, 6, '0');
     RETURN new_code;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
 
-REVOKE EXECUTE ON FUNCTION public.generate_order_code() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.generate_order_code() TO service_role;
+REVOKE EXECUTE ON FUNCTION public.generate_order_code() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.generate_order_code() TO authenticated, service_role;
 
 -- 3. Create order with items (safe transactional order placement RPC)
 CREATE OR REPLACE FUNCTION public.create_order_with_items(
@@ -66,8 +66,8 @@ BEGIN
         RAISE EXCEPTION 'Email đặt hàng không khớp với tài khoản đăng nhập.';
     END IF;
 
-    -- Anti-Spam Check
-    IF EXISTS (SELECT 1 FROM public.blacklisted_emails WHERE email = LOWER(TRIM(p_customer_email))) THEN
+    -- Anti-Spam Check (using secure private helper function)
+    IF private.is_email_blacklisted(p_customer_email) THEN
         RAISE EXCEPTION 'Email này đã bị khoá hệ thống do vi phạm chính sách spam.';
     END IF;
 
@@ -109,7 +109,7 @@ BEGIN
 
     RETURN v_order_code;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
 
 REVOKE EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated, service_role;

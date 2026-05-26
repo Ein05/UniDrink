@@ -12,7 +12,10 @@ BEGIN
         WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+REVOKE EXECUTE ON FUNCTION public.is_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated, service_role;
 
 -- 3. Clean up existing policies if any
 DROP POLICY IF EXISTS "Allow admin access to admins" ON public.admins;

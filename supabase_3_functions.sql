@@ -31,9 +31,10 @@ BEGIN
     new_code := 'DH' || LPAD(next_seq::TEXT, 6, '0');
     RETURN new_code;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.generate_order_code() TO anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.generate_order_code() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.generate_order_code() TO service_role;
 
 -- 3. Create order with items (safe transactional order placement RPC)
 CREATE OR REPLACE FUNCTION public.create_order_with_items(
@@ -103,9 +104,10 @@ BEGIN
 
     RETURN v_order_code;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated, service_role;
 
 -- 4. Get single order details safely by tracking code (bypasses direct select RLS)
 CREATE OR REPLACE FUNCTION public.get_order_by_code(p_code TEXT)
@@ -115,9 +117,10 @@ BEGIN
     SELECT * FROM public.orders
     WHERE UPPER(order_code) = UPPER(TRIM(p_code));
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.get_order_by_code(TEXT) TO anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.get_order_by_code(TEXT) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_order_by_code(TEXT) TO authenticated, service_role;
 
 -- 5. Get order logs securely using the secure order UUID (handles guest tracking)
 CREATE OR REPLACE FUNCTION public.get_order_logs_by_order_id(p_order_id UUID)
@@ -128,9 +131,10 @@ BEGIN
     WHERE order_id = p_order_id
     ORDER BY created_at ASC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) TO anon, authenticated, service_role;
+REVOKE EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) TO authenticated, service_role;
 
 -- 6. Check if the current authenticated user is an admin (used by frontend AdminDashboard)
 CREATE OR REPLACE FUNCTION public.check_is_admin()
@@ -138,6 +142,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
     RETURN public.is_admin();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-GRANT EXECUTE ON FUNCTION public.check_is_admin() TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.check_is_admin() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.check_is_admin() TO authenticated, service_role;

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { LogOut, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn, formatCurrency } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import type { Order, OrderItem, OrderLog } from '../types';
 
@@ -63,12 +63,20 @@ const TrackOrder = () => {
 
   const fetchOrders = async () => {
     setOrdersLoading(true);
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-    if (!error && data) setOrders(data as Order[]);
-    setOrdersLoading(false);
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('orders')
+          .select('*')
+          .order('created_at', { ascending: false }) as unknown as Promise<any>,
+        10000
+      );
+      if (!error && data) setOrders(data as Order[]);
+    } catch (e: any) {
+      console.error('[UniDrink] fetchOrders error or timeout:', e?.message || e);
+    } finally {
+      setOrdersLoading(false);
+    }
   };
 
   /* ── Toggle expand — lazy load items + logs ── */
@@ -78,18 +86,26 @@ const TrackOrder = () => {
       return;
     }
     setExpanding(prev => ({ ...prev, [order.id]: true }));
-    const [itemsRes, logsRes] = await Promise.all([
-      (supabase as any).from('order_items').select('*').eq('order_id', order.id),
-      (supabase as any).rpc('get_order_logs_by_order_id', { p_order_id: order.id }),
-    ]);
-    setExpanded(prev => ({
-      ...prev,
-      [order.id]: {
-        items: (itemsRes.data || []) as OrderItem[],
-        logs: (logsRes.data || []) as OrderLog[],
-      },
-    }));
-    setExpanding(prev => ({ ...prev, [order.id]: false }));
+    try {
+      const [itemsRes, logsRes] = await withTimeout(
+        Promise.all([
+          (supabase as any).from('order_items').select('*').eq('order_id', order.id),
+          (supabase as any).rpc('get_order_logs_by_order_id', { p_order_id: order.id }),
+        ]),
+        8000
+      );
+      setExpanded(prev => ({
+        ...prev,
+        [order.id]: {
+          items: (itemsRes.data || []) as OrderItem[],
+          logs: (logsRes.data || []) as OrderLog[],
+        },
+      }));
+    } catch (e: any) {
+      console.error('[UniDrink] toggleExpand error or timeout:', e?.message || e);
+    } finally {
+      setExpanding(prev => ({ ...prev, [order.id]: false }));
+    }
   };
 
   const handleGoogleSignIn = async () => {

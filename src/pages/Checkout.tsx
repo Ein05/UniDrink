@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import { CheckCircle } from 'lucide-react';
 import { cn, formatCurrency, normalizePhone } from '../lib/utils';
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabase';
+import { supabase, withTimeout } from '../lib/supabase';
 
 const Checkout = () => {
   const { t, cart, lang } = useApp();
@@ -106,15 +106,18 @@ const Checkout = () => {
 
     setLoading(true);
     try {
-      const { data, error } = await (supabase as any).rpc('create_order_with_items', {
-        p_customer_name: formData.name.trim(),
-        p_customer_phone: normalizedPhone,
-        p_address: formData.address.trim(),
-        p_note: formData.note.trim(),
-        p_payment_method: formData.paymentMethod,
-        p_customer_email: session?.user?.email || '',
-        p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
-      });
+      const { data, error } = await withTimeout(
+        (supabase as any).rpc('create_order_with_items', {
+          p_customer_name: formData.name.trim(),
+          p_customer_phone: normalizedPhone,
+          p_address: formData.address.trim(),
+          p_note: formData.note.trim(),
+          p_payment_method: formData.paymentMethod,
+          p_customer_email: session?.user?.email || '',
+          p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
+        }),
+        12000
+      ) as any;
 
       if (error) throw error;
 

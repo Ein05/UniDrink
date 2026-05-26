@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { cn, formatCurrency } from '../lib/utils';
-import { supabase } from '../lib/supabase';
+import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import type { Order, Product, OrderLog } from '../types';
 
@@ -44,16 +44,24 @@ const AdminDashboard = () => {
     }
 
     setLoadingLogs(prev => ({ ...prev, [orderId]: true }));
-    const { data, error } = await supabase
-      .from('order_logs')
-      .select('*')
-      .eq('order_id', orderId)
-      .order('created_at', { ascending: true });
+    try {
+      const { data, error } = await withTimeout(
+        supabase
+          .from('order_logs')
+          .select('*')
+          .eq('order_id', orderId)
+          .order('created_at', { ascending: true }) as unknown as Promise<any>,
+        8000
+      );
 
-    if (!error && data) {
-      setExpandedLogs(prev => ({ ...prev, [orderId]: data as OrderLog[] }));
+      if (!error && data) {
+        setExpandedLogs(prev => ({ ...prev, [orderId]: data as OrderLog[] }));
+      }
+    } catch (e: any) {
+      console.error('[UniDrink] fetchOrderLogs timeout/error:', e?.message || e);
+    } finally {
+      setLoadingLogs(prev => ({ ...prev, [orderId]: false }));
     }
-    setLoadingLogs(prev => ({ ...prev, [orderId]: false }));
   };
 
   // Báo cáo theo ngày — memoized và tự động điền các ngày trống
@@ -174,31 +182,50 @@ const AdminDashboard = () => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const fetchOrders = async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (!error && data) setOrders(data as Order[]);
+      try {
+        const { data, error } = await withTimeout(
+          supabase
+            .from('orders')
+            .select('*')
+            .order('created_at', { ascending: false }) as unknown as Promise<any>,
+          10000
+        );
+        if (!error && data) setOrders(data as Order[]);
+      } catch (e: any) {
+        console.error('[UniDrink] Admin fetchOrders timeout/error:', e?.message || e);
+      }
     };
 
     const fetchProducts = async () => {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('is_deleted', false)
-          .order('name');
+        const { data, error } = await withTimeout(
+          supabase
+            .from('products')
+            .select('*')
+            .eq('is_deleted', false)
+            .order('name') as unknown as Promise<any>,
+          10000
+        );
         if (!error && data) setProducts(data as Product[]);
+      } catch (e: any) {
+        console.error('[UniDrink] Admin fetchProducts timeout/error:', e?.message || e);
       } finally {
         setLoading(false);
       }
     };
 
     const fetchBlacklistedEmails = async () => {
-      const { data, error } = await (supabase as any)
-        .from('blacklisted_emails')
-        .select('email');
-      if (!error && data) setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
+      try {
+        const { data, error } = await withTimeout(
+          (supabase as any)
+            .from('blacklisted_emails')
+            .select('email') as unknown as Promise<any>,
+          10000
+        );
+        if (!error && data) setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
+      } catch (e: any) {
+        console.error('[UniDrink] Admin fetchBlacklistedEmails timeout/error:', e?.message || e);
+      }
     };
 
     const checkAuth = async () => {

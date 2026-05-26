@@ -106,9 +106,9 @@ GRANT SELECT ON public.order_logs    TO authenticated;
 GRANT SELECT ON public.admins        TO authenticated;
 GRANT SELECT, INSERT, DELETE ON public.blacklisted_emails TO authenticated;
 
--- authenticated admins can update orders and products (RLS enforces is_admin check)
+-- authenticated admins can insert/update/delete orders and products (RLS enforces is_admin check)
 GRANT UPDATE ON public.orders   TO authenticated;
-GRANT UPDATE ON public.products TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.products TO authenticated;
 
 -- service_role (used by backend/webhook) needs full access bypassing RLS
 GRANT SELECT, UPDATE ON public.orders        TO service_role;

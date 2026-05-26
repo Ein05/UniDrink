@@ -61,6 +61,11 @@ BEGIN
         RAISE EXCEPTION 'Đơn hàng phải có ít nhất một sản phẩm.';
     END IF;
 
+    -- Authenticated User Email Enforce Check (skip for service_role)
+    IF auth.role() = 'authenticated' AND LOWER(TRIM(p_customer_email)) != LOWER(TRIM(auth.jwt() ->> 'email')) THEN
+        RAISE EXCEPTION 'Email đặt hàng không khớp với tài khoản đăng nhập.';
+    END IF;
+
     -- Anti-Spam Check
     IF EXISTS (SELECT 1 FROM public.blacklisted_emails WHERE email = LOWER(TRIM(p_customer_email))) THEN
         RAISE EXCEPTION 'Email này đã bị khoá hệ thống do vi phạm chính sách spam.';

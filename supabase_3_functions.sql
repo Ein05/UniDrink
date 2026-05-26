@@ -117,7 +117,7 @@ BEGIN
     SELECT * FROM public.orders
     WHERE UPPER(order_code) = UPPER(TRIM(p_code));
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
 
 REVOKE EXECUTE ON FUNCTION public.get_order_by_code(TEXT) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_order_by_code(TEXT) TO authenticated, service_role;
@@ -131,7 +131,7 @@ BEGIN
     WHERE order_id = p_order_id
     ORDER BY created_at ASC;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
 
 REVOKE EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) TO authenticated, service_role;
@@ -142,7 +142,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
     RETURN public.is_admin();
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY INVOKER;
 
 REVOKE EXECUTE ON FUNCTION public.check_is_admin() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.check_is_admin() TO authenticated, service_role;

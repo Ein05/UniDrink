@@ -599,44 +599,90 @@ const AdminDashboard = () => {
     }
   };
 
-  // Khôi phục danh mục mặc định (upsert, không xóa danh mục tùy chỉnh)
+  // Khôi phục danh mục mặc định của UniDrink (Sinh Tố, Trà, Sữa hạt, Nước Ép, Nước)
   const seedDefaultCategories = async () => {
     const defaults: Category[] = [
-      { id: 'coffee',   name_vi: 'Cà Phê',  name_en: 'Coffee'   },
       { id: 'tea',      name_vi: 'Trà',      name_en: 'Tea'      },
-      { id: 'teaMilk',  name_vi: 'Trà Sữa',  name_en: 'Milk Tea' },
+      { id: 'suahat',   name_vi: 'Sữa hạt',  name_en: 'Nut Milk' },
+      { id: 'nuoc',     name_vi: 'Nước',     name_en: 'Water'    },
       { id: 'juice',    name_vi: 'Nước Ép',  name_en: 'Juice'    },
       { id: 'smoothie', name_vi: 'Sinh Tố',  name_en: 'Smoothie' },
     ];
     const confirmed = window.confirm(
       lang === 'EN'
-        ? 'This will upsert default categories (coffee, tea, teaMilk, juice, smoothie). Custom categories will NOT be deleted. Continue?'
-        : 'Thao tác này sẽ upsert các danh mục mặc định (coffee, tea, teaMilk, juice, smoothie). Danh mục tùy chỉnh khác sẽ KHAI GIỪ NGUYÊN. Tiếp tục?'
+        ? 'This will set default categories to: Tea, Nut Milk, Water, Juice, Smoothie.\nObsolete categories (coffee, teaMilk) will be removed, and products under those categories will be migrated to the new IDs.\nContinue?'
+        : 'Thao tác này sẽ thiết lập các danh mục mặc định thành: Trà, Sữa hạt, Nước, Nước Ép, Sinh Tố.\nCác danh mục cũ (coffee, teaMilk) sẽ bị xóa, và sản phẩm thuộc các danh mục cũ sẽ tự động chuyển sang ID mới.\nTiếp tục?'
     );
     if (!confirmed) return;
 
     setSavingCategory(true);
     try {
-      const { error } = await (supabase as any)
+      // 1. Cập nhật category trong bảng products trước
+      // teaMilk -> tea (Trà Sữa sang Trà)
+      // tea -> nuoc (Trà sang Nước)
+      // coffee -> suahat (Cà Phê sang Sữa hạt)
+      await (supabase as any)
+        .from('products')
+        .update({ category: 'suahat' })
+        .eq('category', 'coffee');
+
+      await (supabase as any)
+        .from('products')
+        .update({ category: 'nuoc' })
+        .eq('category', 'tea');
+
+      await (supabase as any)
+        .from('products')
+        .update({ category: 'tea' })
+        .eq('category', 'teaMilk');
+
+      // 2. Xóa các danh mục cũ ra khỏi DB
+      await (supabase as any)
+        .from('categories')
+        .delete()
+        .in('id', ['coffee', 'teaMilk']);
+
+      // 3. Upsert các danh mục mới/chuẩn
+      const { error: upsertError } = await (supabase as any)
         .from('categories')
         .upsert(defaults, { onConflict: 'id' });
 
-      if (error) {
-        alert((lang === 'EN' ? 'Failed to restore defaults: ' : 'Lỗi khôi phục mặc định: ') + error.message);
+      if (upsertError) {
+        alert((lang === 'EN' ? 'Failed to restore defaults: ' : 'Lỗi khôi phục mặc định: ') + upsertError.message);
       } else {
-        // Merge vào state hiện tại
-        setCategories(prev => {
-          const merged = [...prev];
-          for (const def of defaults) {
-            const idx = merged.findIndex(c => c.id === def.id);
-            if (idx >= 0) merged[idx] = def;
-            else merged.push(def);
-          }
-          localStorage.setItem('unidrink_categories', JSON.stringify(merged));
-          return merged;
-        });
-        alert(lang === 'EN' ? '✅ Default categories restored!' : '✅ Đã khôi phục danh mục mặc định!');
+        // 4. Lấy lại danh sách danh mục mới nhất từ DB
+        const { data: catData, error: catError } = await (supabase as any)
+          .from('categories')
+          .select('*');
+
+        if (!catError && catData) {
+          setCategories(catData);
+          localStorage.setItem('unidrink_categories', JSON.stringify(catData));
+        } else {
+          setCategories(defaults);
+          localStorage.setItem('unidrink_categories', JSON.stringify(defaults));
+        }
+
+        // 5. Tải lại danh sách sản phẩm mới nhất từ DB để đồng bộ state và tránh lệch mapping
+        const { data: prodData, error: prodError } = await (supabase as any)
+          .from('products')
+          .select('*')
+          .eq('is_deleted', false)
+          .order('name');
+        
+        if (!prodError && prodData) {
+          setProducts(prodData);
+          localStorage.setItem('unidrink_products', JSON.stringify(prodData));
+        }
+
+        alert(
+          lang === 'EN'
+            ? '✅ Default categories restored and products migrated successfully!'
+            : '✅ Đã khôi phục danh mục mặc định và cập nhật sản phẩm thành công!'
+        );
       }
+    } catch (e: any) {
+      alert((lang === 'EN' ? 'An error occurred: ' : 'Đã xảy ra lỗi: ') + e.message);
     } finally {
       setSavingCategory(false);
     }
@@ -1428,7 +1474,7 @@ const AdminDashboard = () => {
                   )}
                   {categories.map(cat => (
                     <option key={cat.id} value={cat.id}>
-                      {lang === 'EN' ? cat.name_en : cat.name_vi} ({cat.id})
+                      {lang === 'EN' ? cat.name_en : cat.name_vi}
                     </option>
                   ))}
                 </select>

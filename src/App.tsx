@@ -18,11 +18,11 @@ import AdminDashboard from './pages/AdminDashboard';
 import TrackOrder from './pages/TrackOrder';
 
 const DEFAULT_CATEGORIES: Category[] = [
-  { id: 'teaMilk', name_vi: 'Trà Sữa', name_en: 'Milk Tea' },
-  { id: 'coffee',  name_vi: 'Cà Phê',  name_en: 'Coffee' },
-  { id: 'juice',   name_vi: 'Nước Ép', name_en: 'Juice' },
-  { id: 'tea',     name_vi: 'Trà',     name_en: 'Tea' },
-  { id: 'smoothie',name_vi: 'Sinh Tố', name_en: 'Smoothie' },
+  { id: 'tea',      name_vi: 'Trà',      name_en: 'Tea' },
+  { id: 'suahat',   name_vi: 'Sữa hạt',  name_en: 'Nut Milk' },
+  { id: 'nuoc',     name_vi: 'Nước',     name_en: 'Water' },
+  { id: 'juice',    name_vi: 'Nước Ép',  name_en: 'Juice' },
+  { id: 'smoothie', name_vi: 'Sinh Tố',  name_en: 'Smoothie' },
 ];
 
 const AnimatedRoutes = () => {

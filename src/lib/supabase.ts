@@ -2,12 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 // Demo data fallback khi thiếu hoặc lỗi Supabase config
 export const defaultData = [
-  { id: '1', name: 'Cà Phê Sữa Đá', name_en: 'Iced Coffee', price: 25000, category: 'coffee', emoji: '☕', description: 'Cà phê Robusta đậm đà.', description_en: 'Strong Vietnamese Robusta coffee.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
-  { id: '2', name: 'Bạc Xỉu', name_en: 'White Coffee', price: 28000, category: 'coffee', emoji: '🥤', description: 'Nhiều sữa ít cà phê cho người thích ngọt.', description_en: 'Creamy Vietnamese white coffee.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
-  { id: '3', name: 'Trà Sữa Trân Châu', name_en: 'Pearl Milk Tea', price: 35000, category: 'teaMilk', emoji: '🧋', description: 'Trà sữa truyền thống kèm trân châu.', description_en: 'Classic milk tea with chewy pearls.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
-  { id: '4', name: 'Trà Đào Cam Sả', name_en: 'Peach Tea', price: 32000, category: 'tea', emoji: '🍑', description: 'Thanh mát giải nhiệt mùa hè.', description_en: 'Refreshing peach orange lemongrass tea.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
-  { id: '5', name: 'Nước Ép Cam', name_en: 'Orange Juice', price: 30000, category: 'juice', emoji: '🍊', description: 'Cam tươi nguyên chất 100%.', description_en: '100% fresh orange juice.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
-  { id: '6', name: 'Sinh Tố Bơ', name_en: 'Avocado Smoothie', price: 40000, category: 'smoothie', emoji: '🥑', description: 'Bơ sáp béo ngậy xay mịn.', description_en: 'Creamy avocado smoothie.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '1', name: 'Sữa Hạt Sen', name_en: 'Lotus Seed Milk', price: 35000, category: 'suahat', emoji: '🥛', description: 'Sữa hạt sen thơm ngon bổ dưỡng.', description_en: 'Lotus seed nut milk, rich and nutritious.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '2', name: 'Sữa Hạt Điều', name_en: 'Cashew Nut Milk', price: 38000, category: 'suahat', emoji: '🥤', description: 'Sữa hạt điều béo ngậy tự nhiên.', description_en: 'Creamy cashew nut milk, naturally sweet.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '3', name: 'Trà Đào Cam Sả', name_en: 'Peach Orange Tea', price: 32000, category: 'tea', emoji: '🍑', description: 'Thanh mát giải nhiệt mùa hè.', description_en: 'Refreshing peach orange lemongrass tea.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '4', name: 'Nước Ép Cam', name_en: 'Orange Juice', price: 30000, category: 'juice', emoji: '🍊', description: 'Cam tươi nguyên chất 100%.', description_en: '100% fresh orange juice.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '5', name: 'Sinh Tố Bơ', name_en: 'Avocado Smoothie', price: 40000, category: 'smoothie', emoji: '🥑', description: 'Bơ sáp béo ngậy xay mịn.', description_en: 'Creamy avocado smoothie.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
+  { id: '6', name: 'Nước Tinh Khiết', name_en: 'Mineral Water', price: 15000, category: 'nuoc', emoji: '💧', description: 'Nước khoáng đóng chai mát lạnh.', description_en: 'Chilled pure bottled mineral water.', is_available: true, is_deleted: false, created_at: new Date().toISOString() },
 ];
 
 // Singleton client — chỉ khởi tạo một lần duy nhất

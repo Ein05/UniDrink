@@ -78,11 +78,11 @@ CREATE TABLE IF NOT EXISTS public.categories (
 
 -- Seed default category names (only insert if not exists)
 INSERT INTO public.categories (id, name_vi, name_en) VALUES
-    ('teaMilk', 'Trà Sữa',  'Milk Tea'),
-    ('coffee',  'Cà Phê',   'Coffee'),
-    ('juice',   'Nước Ép',  'Juice'),
-    ('tea',     'Trà',      'Tea'),
-    ('smoothie','Sinh Tố',  'Smoothie')
+    ('tea',      'Trà',      'Tea'),
+    ('suahat',   'Sữa hạt',  'Nut Milk'),
+    ('nuoc',     'Nước',     'Water'),
+    ('juice',    'Nước Ép',  'Juice'),
+    ('smoothie', 'Sinh Tố',  'Smoothie')
 ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================

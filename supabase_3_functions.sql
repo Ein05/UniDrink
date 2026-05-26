@@ -66,11 +66,6 @@ BEGIN
         RAISE EXCEPTION 'Email đặt hàng không khớp với tài khoản đăng nhập.';
     END IF;
 
-    -- Anti-Spam Check (using secure private helper function)
-    IF private.is_email_blacklisted(p_customer_email) THEN
-        RAISE EXCEPTION 'Email này đã bị khoá hệ thống do vi phạm chính sách spam.';
-    END IF;
-
     -- Generate sequential code
     v_order_code := public.generate_order_code();
 

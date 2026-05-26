@@ -34,19 +34,6 @@ $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 GRANT USAGE ON SCHEMA private TO authenticated, service_role;
 GRANT EXECUTE ON FUNCTION private.is_admin() TO authenticated, service_role;
 
--- 2b. Helper Blacklist Checking Function (Runs securely as SECURITY DEFINER in private schema)
-CREATE OR REPLACE FUNCTION private.is_email_blacklisted(p_email TEXT)
-RETURNS BOOLEAN AS $$
-BEGIN
-    RETURN EXISTS (
-        SELECT 1 FROM public.blacklisted_emails
-        WHERE email = LOWER(TRIM(p_email))
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-GRANT EXECUTE ON FUNCTION private.is_email_blacklisted(TEXT) TO authenticated, service_role;
-
 -- 3. Create Policies
 
 -- Admins Table: Only admins can view/manage

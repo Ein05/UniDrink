@@ -553,19 +553,22 @@ const AdminDashboard = () => {
   const saveCategory = async (updated: Category) => {
     setSavingCategory(true);
     const prev = categories.find(c => c.id === updated.id);
-    // Optimistic update
-    setCategories(categories.map(c => c.id === updated.id ? updated : c));
+    // Optimistic update dùng functional updater để tránh stale closure
+    const merged = categories.map(c => c.id === updated.id ? updated : c);
+    setCategories(merged);
     setEditingCategory(null);
+
     const { error } = await (supabase as any)
       .from('categories')
       .upsert(updated, { onConflict: 'id' });
+
     if (error) {
+      // Rollback nếu DB lỗi
       if (prev) setCategories(categories.map(c => c.id === updated.id ? prev : c));
       alert((lang === 'EN' ? 'Failed to save category: ' : 'Lỗi lưu danh mục: ') + error.message);
     } else {
-      localStorage.setItem('unidrink_categories', JSON.stringify(
-        categories.map(c => c.id === updated.id ? updated : c)
-      ));
+      // Lưu vào localStorage với data đã merge đúng
+      localStorage.setItem('unidrink_categories', JSON.stringify(merged));
     }
     setSavingCategory(false);
   };

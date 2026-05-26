@@ -497,6 +497,29 @@ const AdminDashboard = () => {
     setSavingProduct(false);
   };
 
+  // Xóa sản phẩm (soft-delete: is_deleted = true)
+  const deleteProduct = async (id: string) => {
+    const productName = products.find(p => p.id === id)?.[lang === 'EN' ? 'name_en' : 'name'] || id;
+    const confirmMsg = lang === 'EN'
+      ? `Delete product "${productName || id}"? This action cannot be undone.`
+      : `Xóa sản phẩm "${productName}"? Hành động này không thể hoàn tác.`;
+    if (!window.confirm(confirmMsg)) return;
+
+    const previous = products.find(p => p.id === id);
+    setProducts(prev => prev.filter(p => p.id !== id));
+    setEditingProduct(null);
+
+    const { error } = await (supabase as any)
+      .from('products')
+      .update({ is_deleted: true })
+      .eq('id', id);
+
+    if (error) {
+      if (previous) setProducts(prev => [...prev, previous].sort((a, b) => a.name.localeCompare(b.name)));
+      alert((lang === 'EN' ? 'Failed to delete product: ' : 'Lỗi xóa sản phẩm: ') + error.message);
+    }
+  };
+
   // Thêm danh mục mới (optimistic + rollback)
   const addCategory = async (newCat: Category) => {
     setSavingCategory(true);
@@ -545,6 +568,32 @@ const AdminDashboard = () => {
       ));
     }
     setSavingCategory(false);
+  };
+
+  // Xóa danh mục (optimistic + rollback)
+  const deleteCategory = async (catId: string) => {
+    const catName = categories.find(c => c.id === catId)?.[lang === 'EN' ? 'name_en' : 'name_vi'] || catId;
+    const productsInCat = products.filter(p => p.category === catId);
+    const confirmMsg = productsInCat.length > 0
+      ? (lang === 'EN'
+          ? `Category "${catName}" still has ${productsInCat.length} product(s). Deleting it will hide the filter button but products remain. Continue?`
+          : `Danh mục "${catName}" còn ${productsInCat.length} sản phẩm. Xóa sẽ ẩn nút lọc nhưng sản phẩm vẫn còn trong DB. Tiếp tục?`)
+      : (lang === 'EN'
+          ? `Delete category "${catName}"?`
+          : `Xóa danh mục "${catName}"?`);
+    if (!window.confirm(confirmMsg)) return;
+
+    const previous = [...categories];
+    const updated = categories.filter(c => c.id !== catId);
+    setCategories(updated);
+    localStorage.setItem('unidrink_categories', JSON.stringify(updated));
+
+    const { error } = await (supabase as any).from('categories').delete().eq('id', catId);
+    if (error) {
+      setCategories(previous);
+      localStorage.setItem('unidrink_categories', JSON.stringify(previous));
+      alert((lang === 'EN' ? 'Failed to delete category: ' : 'Lỗi xóa danh mục: ') + error.message);
+    }
   };
 
   const handleLogout = async () => {
@@ -837,7 +886,7 @@ const AdminDashboard = () => {
             </h3>
             <div className="flex flex-wrap gap-3">
               {categories.map(cat => (
-                <div key={cat.id}>
+                <div key={cat.id} className="group relative">
                   {editingCategory?.id === cat.id ? (
                     <form
                       onSubmit={e => {
@@ -871,13 +920,24 @@ const AdminDashboard = () => {
                       </button>
                     </form>
                   ) : (
-                    <button
-                      onClick={() => setEditingCategory(cat)}
-                      className="px-5 py-2 rounded-2xl text-xs font-bold border border-brand-beige bg-brand-cream text-brand-ink hover:border-brand-brown hover:bg-white transition-all flex items-center gap-2"
-                    >
-                      <span>{lang === 'EN' ? cat.name_en : cat.name_vi}</span>
-                      <span className="text-[9px] text-brand-muted opacity-50 font-mono">✎</span>
-                    </button>
+                    <div className="flex items-center">
+                      <button
+                        onClick={() => setEditingCategory(cat)}
+                        className="px-5 py-2 rounded-2xl text-xs font-bold border border-brand-beige bg-brand-cream text-brand-ink hover:border-brand-brown hover:bg-white transition-all flex items-center gap-2 pr-8"
+                      >
+                        <span>{lang === 'EN' ? cat.name_en : cat.name_vi}</span>
+                        <span className="text-[9px] text-brand-muted opacity-50 font-mono">✎</span>
+                      </button>
+                      {/* Nút xóa danh mục — hiện khi hover */}
+                      <button
+                        type="button"
+                        onClick={() => deleteCategory(cat.id)}
+                        title={lang === 'EN' ? 'Delete category' : 'Xóa danh mục'}
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-red-100 text-red-500 hover:bg-red-500 hover:text-white transition-all text-[10px] font-black flex items-center justify-center opacity-0 group-hover:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   )}
                 </div>
               ))}
@@ -1003,6 +1063,12 @@ const AdminDashboard = () => {
                     className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border border-brand-beige text-brand-muted hover:bg-brand-brown hover:text-white hover:border-brand-brown transition-all"
                   >
                     {t.editButton}
+                  </button>
+                  <button
+                    onClick={() => deleteProduct(product.id)}
+                    className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-white border border-red-200 text-red-400 hover:bg-red-500 hover:text-white hover:border-red-500 transition-all"
+                  >
+                    {lang === 'EN' ? 'Delete' : 'Xóa'}
                   </button>
                 </div>
               </div>
@@ -1426,23 +1492,37 @@ const AdminDashboard = () => {
               </div>
 
               {/* Actions */}
-              <div className="pt-2 flex justify-end gap-3">
-                <button
-                  type="button"
-                  onClick={() => setEditingProduct(null)}
-                  className="px-6 py-3 bg-white border border-brand-beige text-brand-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-cream transition-colors"
-                >
-                  {t.cancelButton}
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingProduct}
-                  className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10 disabled:opacity-60 flex items-center gap-2"
-                >
-                  {savingProduct
-                    ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{lang === 'EN' ? 'Saving...' : 'Đang lưu...'}</>
-                    : t.saveButton}
-                </button>
+              <div className="pt-2 flex justify-between items-center gap-3">
+                {/* Nút xóa — chỉ hiện với sản phẩm đã tồn tại (không phải NEW_PRODUCT) */}
+                {editingProduct.id !== 'NEW_PRODUCT' ? (
+                  <button
+                    type="button"
+                    onClick={() => deleteProduct(editingProduct.id)}
+                    className="px-5 py-3 bg-white border border-red-200 text-red-400 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white hover:border-red-500 transition-all flex items-center gap-1.5"
+                  >
+                    <span>🗑</span>
+                    {lang === 'EN' ? 'Delete Product' : 'Xóa sản phẩm'}
+                  </button>
+                ) : <div />}
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setEditingProduct(null)}
+                    className="px-6 py-3 bg-white border border-brand-beige text-brand-muted rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-cream transition-colors"
+                  >
+                    {t.cancelButton}
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingProduct}
+                    className="px-6 py-3 bg-brand-brown text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-ink transition-colors shadow-lg shadow-brand-brown/10 disabled:opacity-60 flex items-center gap-2"
+                  >
+                    {savingProduct
+                      ? <><div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />{lang === 'EN' ? 'Saving...' : 'Đang lưu...'}</>
+                      : t.saveButton}
+                  </button>
+                </div>
               </div>
             </form>
           </div>

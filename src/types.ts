@@ -54,4 +54,10 @@ export interface Setting {
   updated_at: string;
 }
 
+export interface Category {
+  id: string;       // 'coffee', 'tea', 'teaMilk', 'juice', 'smoothie'
+  name_vi: string;
+  name_en: string;
+}
+
 export type Language = 'VI' | 'EN';

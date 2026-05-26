@@ -5,7 +5,8 @@ import { AnimatePresence } from 'motion/react';
 import { AppContext } from './context/AppContext';
 import { translations } from './translations';
 import { useCart } from './hooks/useCart';
-import type { Language, Product } from './types';
+import type { Language, Product, Category } from './types';
+import { supabase } from './lib/supabase';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -15,6 +16,14 @@ import Checkout from './pages/Checkout';
 import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import TrackOrder from './pages/TrackOrder';
+
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: 'teaMilk', name_vi: 'Trà Sữa', name_en: 'Milk Tea' },
+  { id: 'coffee',  name_vi: 'Cà Phê',  name_en: 'Coffee' },
+  { id: 'juice',   name_vi: 'Nước Ép', name_en: 'Juice' },
+  { id: 'tea',     name_vi: 'Trà',     name_en: 'Tea' },
+  { id: 'smoothie',name_vi: 'Sinh Tố', name_en: 'Smoothie' },
+];
 
 const AnimatedRoutes = () => {
   const location = useLocation();
@@ -48,11 +57,29 @@ export default function App() {
     return localStorage.getItem('unidrink_products') !== null;
   });
 
+  const [categories, setCategories] = useState<Category[]>(() => {
+    const saved = localStorage.getItem('unidrink_categories');
+    return saved ? JSON.parse(saved) : DEFAULT_CATEGORIES;
+  });
+
   const cart = useCart();
 
   useEffect(() => {
     localStorage.setItem('unicafe_lang', lang);
   }, [lang]);
+
+  // Fetch dynamic category names from Supabase on startup
+  useEffect(() => {
+    supabase
+      .from('categories')
+      .select('*')
+      .then(({ data, error }) => {
+        if (!error && data && data.length > 0) {
+          setCategories(data as Category[]);
+          localStorage.setItem('unidrink_categories', JSON.stringify(data));
+        }
+      });
+  }, []);
 
   const t = translations[lang];
 
@@ -66,7 +93,9 @@ export default function App() {
         products,
         setProducts,
         productsLoaded,
-        setProductsLoaded
+        setProductsLoaded,
+        categories,
+        setCategories,
       }}>
         <div className="min-h-screen flex flex-col">
           <Header />

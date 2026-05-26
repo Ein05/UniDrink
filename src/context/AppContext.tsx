@@ -1,7 +1,7 @@
 import { createContext, useContext } from 'react';
 import { translations } from '../translations';
 import { useCart } from '../hooks/useCart';
-import type { Language, Product } from '../types';
+import type { Language, Product, Category } from '../types';
 
 export interface AppContextType {
   lang: Language;
@@ -12,6 +12,8 @@ export interface AppContextType {
   setProducts: (products: Product[]) => void;
   productsLoaded: boolean;
   setProductsLoaded: (loaded: boolean) => void;
+  categories: Category[];
+  setCategories: (categories: Category[]) => void;
 }
 
 export const AppContext = createContext<AppContextType | null>(null);

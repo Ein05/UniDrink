@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { cn, formatCurrency } from '../lib/utils';
 import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
-import type { Order, Product, OrderLog } from '../types';
+import type { Order, Product, OrderLog, Category } from '../types';
 
 type DayReport = {
   date: string;
@@ -18,7 +18,7 @@ type DayReport = {
 };
 
 const AdminDashboard = () => {
-  const { t, lang } = useApp();
+  const { t, lang, categories, setCategories } = useApp();
   const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -32,6 +32,8 @@ const AdminDashboard = () => {
   const [savingProduct, setSavingProduct] = useState(false);
 
   const [blacklistedEmails, setBlacklistedEmails] = useState<string[]>([]);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [savingCategory, setSavingCategory] = useState(false);
 
   const fetchOrderLogs = async (orderId: string) => {
     if (expandedLogs[orderId]) {
@@ -354,6 +356,26 @@ const AdminDashboard = () => {
     setSavingProduct(false);
   };
 
+  const saveCategory = async (updated: Category) => {
+    setSavingCategory(true);
+    const prev = categories.find(c => c.id === updated.id);
+    // Optimistic update
+    setCategories(categories.map(c => c.id === updated.id ? updated : c));
+    setEditingCategory(null);
+    const { error } = await (supabase as any)
+      .from('categories')
+      .upsert(updated, { onConflict: 'id' });
+    if (error) {
+      if (prev) setCategories(categories.map(c => c.id === updated.id ? prev : c));
+      alert((lang === 'EN' ? 'Failed to save category: ' : 'Lỗi lưu danh mục: ') + error.message);
+    } else {
+      localStorage.setItem('unidrink_categories', JSON.stringify(
+        categories.map(c => c.id === updated.id ? updated : c)
+      ));
+    }
+    setSavingCategory(false);
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/admin');
@@ -636,6 +658,62 @@ const AdminDashboard = () => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+          {/* Category Name Editor */}
+          <div className="md:col-span-2 lg:col-span-3 bg-white rounded-[2rem] border border-brand-beige p-6">
+            <h3 className="text-sm font-black uppercase tracking-widest text-brand-muted mb-4">
+              {lang === 'EN' ? 'Category Names' : 'Tên danh mục đồ uống'}
+            </h3>
+            <div className="flex flex-wrap gap-3">
+              {categories.map(cat => (
+                <div key={cat.id}>
+                  {editingCategory?.id === cat.id ? (
+                    <form
+                      onSubmit={e => {
+                        e.preventDefault();
+                        const fd = new FormData(e.currentTarget);
+                        saveCategory({
+                          id: cat.id,
+                          name_vi: (fd.get('name_vi') as string).trim() || cat.name_vi,
+                          name_en: (fd.get('name_en') as string).trim() || cat.name_en,
+                        });
+                      }}
+                      className="flex items-center gap-2 bg-brand-cream border border-brand-caramel/50 rounded-2xl px-3 py-2"
+                    >
+                      <input
+                        name="name_vi"
+                        defaultValue={cat.name_vi}
+                        placeholder="Tên VI"
+                        className="w-20 bg-white border border-brand-beige rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-brown"
+                      />
+                      <input
+                        name="name_en"
+                        defaultValue={cat.name_en}
+                        placeholder="EN name"
+                        className="w-20 bg-white border border-brand-beige rounded-lg px-2 py-1 text-xs outline-none focus:border-brand-brown"
+                      />
+                      <button type="submit" disabled={savingCategory} className="text-[10px] font-black uppercase tracking-widest bg-brand-brown text-white px-3 py-1 rounded-lg hover:bg-brand-ink transition-colors disabled:opacity-50">
+                        {savingCategory ? '...' : (lang === 'EN' ? 'Save' : 'Lưu')}
+                      </button>
+                      <button type="button" onClick={() => setEditingCategory(null)} className="text-[10px] font-black text-brand-muted hover:text-brand-ink">
+                        ✕
+                      </button>
+                    </form>
+                  ) : (
+                    <button
+                      onClick={() => setEditingCategory(cat)}
+                      className="px-5 py-2 rounded-2xl text-xs font-bold border border-brand-beige bg-brand-cream text-brand-ink hover:border-brand-brown hover:bg-white transition-all flex items-center gap-2"
+                    >
+                      <span>{lang === 'EN' ? cat.name_en : cat.name_vi}</span>
+                      <span className="text-[9px] text-brand-muted opacity-50 font-mono">✎</span>
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Product List */}
           {products.map(product => (
               <div key={product.id} className="bg-white p-5 rounded-[2rem] border border-brand-beige flex items-center gap-4 hover:shadow-md transition-all group">
                 <div className="w-16 h-16 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-3xl shrink-0 overflow-hidden">

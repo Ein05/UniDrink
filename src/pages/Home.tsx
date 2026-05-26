@@ -7,17 +7,9 @@ import { supabase, defaultData, withTimeout } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
 import type { Product } from '../types';
 
-const categories = [
-  { id: 'all' },
-  { id: 'teaMilk' },
-  { id: 'coffee' },
-  { id: 'juice' },
-  { id: 'tea' },
-  { id: 'smoothie' },
-];
 
 const Home = () => {
-  const { lang, t, products, setProducts, productsLoaded, setProductsLoaded } = useApp();
+  const { lang, t, products, setProducts, productsLoaded, setProductsLoaded, categories } = useApp();
   const [loading, setLoading] = useState(!productsLoaded);
   const [syncing, setSyncing] = useState(false); // đang chờ Supabase wake up trong nền
   const [activeCategory, setActiveCategory] = useState('all');
@@ -195,6 +187,19 @@ const Home = () => {
 
       {/* Categories */}
       <section className="flex flex-wrap gap-2 md:gap-4 justify-center px-2 md:px-4">
+        {/* "All" button is always first */}
+        <button
+          key="all"
+          onClick={() => setActiveCategory('all')}
+          className={cn(
+            "px-6 py-2 md:px-10 md:py-3 rounded-full text-xs md:text-sm font-bold transition-all border",
+            activeCategory === 'all'
+              ? "bg-brand-brown text-white border-brand-brown shadow-xl shadow-brand-brown/10"
+              : "bg-white border-brand-beige text-[#2D1B14] hover:bg-brand-cream"
+          )}
+        >
+          {t.categoryAll}
+        </button>
         {categories.map((cat) => (
           <button
             key={cat.id}
@@ -206,7 +211,7 @@ const Home = () => {
                 : "bg-white border-brand-beige text-[#2D1B14] hover:bg-brand-cream"
             )}
           >
-            {t[`category${cat.id.charAt(0).toUpperCase() + cat.id.slice(1)}` as keyof typeof t]}
+            {lang === 'EN' ? cat.name_en : cat.name_vi}
           </button>
         ))}
       </section>

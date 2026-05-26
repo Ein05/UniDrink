@@ -44,6 +44,13 @@ CREATE POLICY "Allow admin access to admins" ON public.admins
 CREATE POLICY "Allow admin access to blacklisted_emails" ON public.blacklisted_emails
     FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
 
+-- Categories: Everyone can read, only admin can write
+CREATE POLICY "Allow public read access to categories" ON public.categories
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow admin write access to categories" ON public.categories
+    FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+
 -- Products: Everyone can read, only Admin can write
 CREATE POLICY "Allow public read access to products" ON public.products
     FOR SELECT USING (true);
@@ -102,3 +109,12 @@ GRANT SELECT, INSERT, DELETE ON public.blacklisted_emails TO authenticated;
 -- authenticated admins can update orders and products (RLS enforces is_admin check)
 GRANT UPDATE ON public.orders   TO authenticated;
 GRANT UPDATE ON public.products TO authenticated;
+
+-- service_role (used by backend/webhook) needs full access bypassing RLS
+GRANT SELECT, UPDATE ON public.orders        TO service_role;
+GRANT SELECT, INSERT  ON public.order_logs   TO service_role;
+GRANT SELECT          ON public.order_items  TO service_role;
+
+-- categories: everyone can read, authenticated admins can upsert
+GRANT SELECT ON public.categories TO anon, authenticated;
+GRANT INSERT, UPDATE ON public.categories TO authenticated;

@@ -69,6 +69,22 @@ CREATE TABLE IF NOT EXISTS public.order_logs (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 7. Categories Table (admin-editable display names for product categories)
+CREATE TABLE IF NOT EXISTS public.categories (
+    id TEXT PRIMARY KEY,       -- 'coffee', 'tea', 'teaMilk', 'juice', 'smoothie'
+    name_vi TEXT NOT NULL,
+    name_en TEXT NOT NULL
+);
+
+-- Seed default category names (only insert if not exists)
+INSERT INTO public.categories (id, name_vi, name_en) VALUES
+    ('teaMilk', 'Trà Sữa',  'Milk Tea'),
+    ('coffee',  'Cà Phê',   'Coffee'),
+    ('juice',   'Nước Ép',  'Juice'),
+    ('tea',     'Trà',      'Tea'),
+    ('smoothie','Sinh Tố',  'Smoothie')
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================================
 -- ENABLE ROW LEVEL SECURITY (RLS) IMMEDIATELY
 -- ============================================================

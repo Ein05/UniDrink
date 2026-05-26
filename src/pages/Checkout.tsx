@@ -109,9 +109,49 @@ const Checkout = () => {
       // Save order time to prevent spam
       localStorage.setItem('last_order_time', Date.now().toString());
 
-      setOrderTotal(cart.total);
-      setSuccessCode(data as string);
+      const orderCodeText = data as string;
+      const orderTotalAmount = cart.total;
+
+      // Clear cart immediately to prevent duplicate orders
       cart.clearCart();
+
+      if (formData.paymentMethod === 'transfer') {
+        try {
+          // Call serverless API to create PayOS payment link
+          const response = await fetch('/api/payos-create', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              orderCodeText,
+              totalPrice: orderTotalAmount,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to create PayOS link');
+          }
+
+          const payosData = await response.json();
+          if (payosData && payosData.checkoutUrl) {
+            // Redirect customer directly to PayOS secure portal
+            window.location.href = payosData.checkoutUrl;
+            return;
+          } else {
+            throw new Error('Invalid response data from PayOS API');
+          }
+        } catch (payosErr) {
+          console.error('[Checkout PayOS Error]:', payosErr);
+          // Fallback to manual QR display if PayOS integration fails
+          setOrderTotal(orderTotalAmount);
+          setSuccessCode(orderCodeText);
+        }
+      } else {
+        // Cash order: Show standard checkout success screen
+        setOrderTotal(orderTotalAmount);
+        setSuccessCode(orderCodeText);
+      }
     } catch (err: any) {
       console.error('Order creation error:', err);
       const msg = err?.message || (err instanceof Error ? err.message : null) || t.orderFailed;

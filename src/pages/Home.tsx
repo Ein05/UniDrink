@@ -31,7 +31,7 @@ const Home = () => {
     async function fetchProducts() {
       type FetchResult = { data: Product[] | null; error: { message: string } | null };
 
-      // Bọc supabase query với timeout tối đa 10 giây
+      // Bọc supabase query với timeout tối đa 25 giây
       const supabasePromise = withTimeout(
         Promise.resolve(
           supabase
@@ -39,7 +39,7 @@ const Home = () => {
             .select('*')
             .eq('is_deleted', false)
         ),
-        10000
+        25000
       ) as unknown as Promise<FetchResult>;
 
       // Nếu chưa có data → sau 3 giây hiện demo data ngay để user không phải chờ spinner vô tận.

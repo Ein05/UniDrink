@@ -86,10 +86,10 @@ export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
 });
 
 // ─── Timeout wrapper cho mọi Supabase query ──────────────────────────────────
-// Dùng: await withTimeout(supabase.from('products').select('*'), 8000)
+// Dùng: await withTimeout(supabase.from('products').select('*'), 15000)
 export async function withTimeout<T>(
   promise: Promise<T>,
-  ms = 8000
+  ms = 15000
 ): Promise<T> {
   const timeout = new Promise<never>((_, reject) =>
     setTimeout(() => reject(new Error(`Supabase request timed out after ${ms}ms`)), ms)

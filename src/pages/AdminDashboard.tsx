@@ -51,7 +51,7 @@ const AdminDashboard = () => {
           .select('*')
           .eq('order_id', orderId)
           .order('created_at', { ascending: true }) as unknown as Promise<any>,
-        8000
+        20000
       );
 
       if (!error && data) {
@@ -188,7 +188,7 @@ const AdminDashboard = () => {
             .from('orders')
             .select('*')
             .order('created_at', { ascending: false }) as unknown as Promise<any>,
-          10000
+          25000
         );
         if (!error && data) setOrders(data as Order[]);
       } catch (e: any) {
@@ -204,7 +204,7 @@ const AdminDashboard = () => {
             .select('*')
             .eq('is_deleted', false)
             .order('name') as unknown as Promise<any>,
-          10000
+          25000
         );
         if (!error && data) setProducts(data as Product[]);
       } catch (e: any) {
@@ -220,7 +220,7 @@ const AdminDashboard = () => {
           (supabase as any)
             .from('blacklisted_emails')
             .select('email') as unknown as Promise<any>,
-          10000
+          25000
         );
         if (!error && data) setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
       } catch (e: any) {
@@ -236,7 +236,10 @@ const AdminDashboard = () => {
       }
 
       // Kiểm tra quyền admin qua bảng admins trong DB (SECURITY DEFINER RPC)
-      const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+      const { data: isAdmin } = await withTimeout(
+        (supabase as any).rpc('check_is_admin'),
+        20000
+      ) as any;
       if (!isAdmin) {
         // Không gọi signOut() để giữ phiên đăng nhập của User thường
         navigate('/login', { state: { notAuthorized: true } });

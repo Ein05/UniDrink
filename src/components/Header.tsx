@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Coffee, ShoppingCart, User, PackageSearch } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabase';
+import { supabase, withTimeout } from '../lib/supabase';
 
 const Header = () => {
   const { lang, setLang, cart } = useApp();
@@ -21,8 +21,17 @@ const Header = () => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       if (session) {
-        const { data } = await (supabase as any).rpc('check_is_admin');
-        setIsAdmin(!!data);
+        let isAdminVal = false;
+        try {
+          const { data } = await withTimeout(
+            (supabase as any).rpc('check_is_admin'),
+            15000
+          ) as any;
+          isAdminVal = !!data;
+        } catch (err) {
+          console.warn('[UniDrink] check_is_admin timeout/error in Header session:', err);
+        }
+        setIsAdmin(isAdminVal);
       } else {
         setIsAdmin(false);
       }
@@ -31,8 +40,17 @@ const Header = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       setSession(session);
       if (session) {
-        const { data } = await (supabase as any).rpc('check_is_admin');
-        setIsAdmin(!!data);
+        let isAdminVal = false;
+        try {
+          const { data } = await withTimeout(
+            (supabase as any).rpc('check_is_admin'),
+            15000
+          ) as any;
+          isAdminVal = !!data;
+        } catch (err) {
+          console.warn('[UniDrink] check_is_admin timeout/error in Header auth change:', err);
+        }
+        setIsAdmin(isAdminVal);
       } else {
         setIsAdmin(false);
       }

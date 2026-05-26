@@ -56,10 +56,7 @@ CREATE POLICY "Allow admin write access to products" ON public.products
 CREATE POLICY "Allow read orders owned or admin" ON public.orders
     FOR SELECT USING (
         (customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))) 
-        OR EXISTS (
-            SELECT 1 FROM public.admins
-            WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
-        )
+        OR private.is_admin()
     );
 
 -- Update: Only admins can update orders (e.g. status, is_paid)

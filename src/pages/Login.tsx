@@ -1,7 +1,7 @@
 import React, { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { supabase } from '../lib/supabase';
+import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 
 type AuthMode = 'signin' | 'signup';
@@ -31,7 +31,16 @@ const Login = () => {
         if (notAuthorized) {
           return;
         }
-        const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+        let isAdmin = false;
+        try {
+          const { data } = await withTimeout(
+            (supabase as any).rpc('check_is_admin'),
+            20000
+          ) as any;
+          isAdmin = !!data;
+        } catch (err) {
+          console.warn('[UniDrink] check_is_admin timed out or failed in Login:', err);
+        }
         if (active) {
           if (isAdmin) {
             navigate('/admin/dashboard');
@@ -68,7 +77,16 @@ const Login = () => {
         setErrorMsg(error.message);
       } else {
         // Đăng nhập thành công, check role để redirect
-        const { data: isAdmin } = await (supabase as any).rpc('check_is_admin');
+        let isAdmin = false;
+        try {
+          const { data } = await withTimeout(
+            (supabase as any).rpc('check_is_admin'),
+            20000
+          ) as any;
+          isAdmin = !!data;
+        } catch (err) {
+          console.warn('[UniDrink] check_is_admin failed in login submit:', err);
+        }
         if (isAdmin) {
           navigate('/admin/dashboard');
         } else {

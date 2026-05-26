@@ -79,3 +79,12 @@ ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_logs ENABLE ROW LEVEL SECURITY;
 
+-- ============================================================
+-- CREATE PERFORMANCE INDEXES
+-- ============================================================
+CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items(order_id);
+CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items(product_id);
+CREATE INDEX IF NOT EXISTS idx_order_logs_order_id ON public.order_logs(order_id);
+CREATE INDEX IF NOT EXISTS idx_orders_customer_email ON public.orders(customer_email);
+
+

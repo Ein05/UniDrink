@@ -69,7 +69,7 @@ const TrackOrder = () => {
           .from('orders')
           .select('*')
           .order('created_at', { ascending: false }) as unknown as Promise<any>,
-        10000
+        25000
       );
       if (!error && data) setOrders(data as Order[]);
     } catch (e: any) {
@@ -92,7 +92,7 @@ const TrackOrder = () => {
           (supabase as any).from('order_items').select('*').eq('order_id', order.id),
           (supabase as any).rpc('get_order_logs_by_order_id', { p_order_id: order.id }),
         ]),
-        8000
+        20000
       );
       setExpanded(prev => ({
         ...prev,

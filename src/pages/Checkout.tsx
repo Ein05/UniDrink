@@ -116,7 +116,7 @@ const Checkout = () => {
           p_customer_email: session?.user?.email || '',
           p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
         }),
-        12000
+        30000
       ) as any;
 
       if (error) throw error;

@@ -49,7 +49,13 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'reports'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'reports'>(() => {
+    const saved = localStorage.getItem('unidrink_admin_tab');
+    if (saved === 'orders' || saved === 'products' || saved === 'reports') {
+      return saved;
+    }
+    return 'orders';
+  });
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [expandedLogs, setExpandedLogs] = useState<Record<string, OrderLog[]>>({});
   const [loadingLogs, setLoadingLogs] = useState<Record<string, boolean>>({});
@@ -710,7 +716,10 @@ const AdminDashboard = () => {
             {(['orders', 'products', 'reports'] as const).map(tab => (
               <button
                 key={tab}
-                onClick={() => setActiveTab(tab)}
+                onClick={() => {
+                  setActiveTab(tab);
+                  localStorage.setItem('unidrink_admin_tab', tab);
+                }}
                 className={cn(
                   "px-6 py-2 rounded-full text-xs font-bold transition-all uppercase tracking-widest border",
                   activeTab === tab

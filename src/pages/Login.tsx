@@ -19,39 +19,49 @@ const Login = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  // Hiển thị lỗi "không có quyền" khi bị redirect từ Dashboard
+  // Lấy trang đích (nếu được redirect từ /checkout hoặc trang khác)
+  const fromPage = (location.state as any)?.from as string | undefined;
   const notAuthorized = (location.state as any)?.notAuthorized;
 
+  // Helper: điều hướng sau khi đăng nhập thành công
+  const redirectAfterLogin = async (active: { value: boolean }) => {
+    // Ưu tiên: trang đích từ state hoặc sessionStorage (sau Google OAuth redirect)
+    const stored = sessionStorage.getItem('login_redirect_to');
+    const destination = stored || fromPage;
+    if (stored) sessionStorage.removeItem('login_redirect_to');
+
+    if (destination) {
+      navigate(destination, { replace: true });
+      return;
+    }
+
+    // Kiểm tra quyền admin để điều hướng mặc định
+    let isAdmin = false;
+    try {
+      const { data } = await withTimeout(
+        (supabase as any).rpc('check_is_admin'),
+        20000
+      ) as any;
+      isAdmin = !!data;
+    } catch (err) {
+      console.warn('[UniDrink] check_is_admin timed out or failed in Login:', err);
+    }
+    if (active.value) {
+      navigate(isAdmin ? '/admin/dashboard' : '/track', { replace: true });
+    }
+  };
+
   useEffect(() => {
-    let active = true;
+    const active = { value: true };
     const checkSessionAndRedirect = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      if (session && active) {
-        // Chỉ tự động redirect nếu không phải trường hợp vừa bị đá ra từ Dashboard do không có quyền
-        if (notAuthorized) {
-          return;
-        }
-        let isAdmin = false;
-        try {
-          const { data } = await withTimeout(
-            (supabase as any).rpc('check_is_admin'),
-            20000
-          ) as any;
-          isAdmin = !!data;
-        } catch (err) {
-          console.warn('[UniDrink] check_is_admin timed out or failed in Login:', err);
-        }
-        if (active) {
-          if (isAdmin) {
-            navigate('/admin/dashboard');
-          } else {
-            navigate('/track');
-          }
-        }
+      if (session && active.value && !notAuthorized) {
+        await redirectAfterLogin(active);
       }
     };
     checkSessionAndRedirect();
-    return () => { active = false; };
+    return () => { active.value = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, notAuthorized]);
 
   /* ── Email auth ── */
@@ -61,6 +71,7 @@ const Login = () => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
+    const active = { value: true };
     if (mode === 'signup') {
       const { data, error } = await supabase.auth.signUp({ email, password });
       if (error) {
@@ -68,30 +79,14 @@ const Login = () => {
       } else if (!data.session) {
         setSuccessMsg(t.adminConfirmEmail);
       } else {
-        // Tài khoản mới tạo mặc định là user thường
-        navigate('/track');
+        await redirectAfterLogin(active);
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
         setErrorMsg(error.message);
       } else {
-        // Đăng nhập thành công, check role để redirect
-        let isAdmin = false;
-        try {
-          const { data } = await withTimeout(
-            (supabase as any).rpc('check_is_admin'),
-            20000
-          ) as any;
-          isAdmin = !!data;
-        } catch (err) {
-          console.warn('[UniDrink] check_is_admin failed in login submit:', err);
-        }
-        if (isAdmin) {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/track');
-        }
+        await redirectAfterLogin(active);
       }
     }
     setLoading(false);
@@ -101,6 +96,13 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     setErrorMsg(null);
+    // Lưu trang đích vào sessionStorage trước khi browser redirect
+    // (React Router state bị mất khi reload)
+    if (fromPage) {
+      sessionStorage.setItem('login_redirect_to', fromPage);
+    } else {
+      sessionStorage.removeItem('login_redirect_to');
+    }
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: window.location.origin + '/login' },
@@ -123,6 +125,17 @@ const Login = () => {
         <h2 className="text-4xl md:text-5xl font-serif text-brand-brown">{t.adminPortalTitle}</h2>
         <p className="text-brand-muted font-black uppercase text-[10px] tracking-[0.2em]">{t.adminPortalSubtitle}</p>
       </div>
+
+      {/* Banner khi redirect từ checkout */}
+      {fromPage === '/checkout' && !notAuthorized && (
+        <div className="bg-brand-caramel/10 border border-brand-caramel/30 rounded-2xl px-5 py-3 text-center">
+          <p className="text-xs font-bold text-brand-brown">
+            {lang === 'EN'
+              ? '🛒 Sign in to complete your order'
+              : '🛒 Đăng nhập để hoàn tất đặt hàng'}
+          </p>
+        </div>
+      )}
 
       <div className="bg-white rounded-[2.5rem] p-8 md:p-10 shadow-2xl border border-brand-beige space-y-6">
 

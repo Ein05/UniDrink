@@ -7,6 +7,12 @@ import { supabase, withTimeout } from '../lib/supabase';
 import { useApp } from '../context/AppContext';
 import type { Order, OrderItem, OrderLog } from '../types';
 
+// Kiểm tra đồng bộ xem có Supabase token không
+const hasStoredSession = () =>
+  Object.keys(localStorage).some(
+    (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
+  );
+
 interface ExpandedData {
   items: OrderItem[];
   logs: OrderLog[];
@@ -16,7 +22,8 @@ const TrackOrder = () => {
   const { t, lang } = useApp();
 
   const [session, setSession] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  // Chỉ hiện loading spinner nếu có token trong localStorage
+  const [authLoading, setAuthLoading] = useState(() => hasStoredSession());
   const [signingIn, setSigningIn] = useState(false);
 
   const [orders, setOrders] = useState<Order[]>([]);
@@ -27,32 +34,17 @@ const TrackOrder = () => {
 
   /* ── Auth ── */
   useEffect(() => {
-    let resolved = false;
-
-    // Cooldown timeout 4s để giải phóng màn hình loading nếu Supabase phản hồi chậm
-    const timeout = setTimeout(() => {
-      if (!resolved) {
-        console.warn('[UniDrink] Session check timed out, continuing with null session.');
-        setAuthLoading(false);
-      }
-    }, 4000);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
+      setSession(session);
+      setAuthLoading(false);
+    });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      resolved = true;
-      clearTimeout(timeout);
       setSession(session);
       setAuthLoading(false);
     });
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
-      resolved = true;
-      clearTimeout(timeout);
-      setSession(session);
-      setAuthLoading(false);
-    });
-    return () => {
-      clearTimeout(timeout);
-      subscription.unsubscribe();
-    };
+
+    return () => subscription.unsubscribe();
   }, []);
 
   /* ── Fetch orders khi có session ── */

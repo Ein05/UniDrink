@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Coffee, ShoppingCart, User, PackageSearch } from 'lucide-react';
+import { Coffee, ShoppingCart, User } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
 import { supabase, withTimeout } from '../lib/supabase';
@@ -101,9 +101,7 @@ const Header = () => {
             )}
           </Link>
 
-          <Link to="/track" className="p-1.5 sm:p-2 text-brand-ink hover:text-brand-brown transition-colors shrink-0">
-            <PackageSearch className="w-5 h-5 md:w-6 md:h-6 stroke-[1.5]" />
-          </Link>
+
 
           <Link
             to={!session ? "/login" : (isAdmin ? "/admin/dashboard" : "/track")}

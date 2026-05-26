@@ -17,9 +17,8 @@ const categories = [
 ];
 
 const Home = () => {
-  const { lang, t } = useApp();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { lang, t, products, setProducts, productsLoaded, setProductsLoaded } = useApp();
+  const [loading, setLoading] = useState(!productsLoaded);
   const [syncing, setSyncing] = useState(false); // đang chờ Supabase wake up trong nền
   const [activeCategory, setActiveCategory] = useState('all');
   const [search, setSearch] = useState('');
@@ -28,23 +27,25 @@ const Home = () => {
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
 
     async function fetchProducts() {
       type FetchResult = { data: Product[] | null; error: { message: string } | null };
 
       // Bọc supabase query với timeout tối đa 10 giây
       const supabasePromise = withTimeout(
-        supabase
-          .from('products')
-          .select('*')
-          .eq('is_deleted', false) as unknown as Promise<any>,
+        Promise.resolve(
+          supabase
+            .from('products')
+            .select('*')
+            .eq('is_deleted', false)
+        ),
         10000
       ) as unknown as Promise<FetchResult>;
 
-      // Sau 3 giây chưa có data → hiện demo data ngay, tiếp tục chờ Supabase trong nền
+      // Nếu chưa có data → sau 3 giây hiện demo data ngay để user không phải chờ spinner vô tận.
+      // Nếu đã có data cũ rồi → không cần fallback nhanh vì user đã nhìn thấy sản phẩm từ cache rồi.
       const quickFallbackPromise = new Promise<FetchResult>((resolve) =>
-        setTimeout(() => resolve({ data: null, error: { message: '__quick_fallback__' } }), 3000)
+        setTimeout(() => resolve({ data: null, error: { message: '__quick_fallback__' } }), productsLoaded ? 999999 : 3000)
       );
 
       try {
@@ -53,7 +54,7 @@ const Home = () => {
         if (cancelled) return;
 
         if (error?.message === '__quick_fallback__') {
-          // Supabase đang cold-start — hiện demo data ngay để user không chờ
+          // Supabase đang cold-start trong lần đầu truy cập — hiện demo data tạm thời
           console.warn('[UniDrink] Supabase chậm phản hồi — hiện demo data, đang chờ Supabase trong nền...');
           setProducts(defaultData as unknown as Product[]);
           setLoading(false);
@@ -66,6 +67,8 @@ const Home = () => {
             if (!realError && realData && realData.length > 0) {
               console.info('[UniDrink] Supabase đã thức dậy — cập nhật dữ liệu thật.');
               setProducts(realData);
+              setProductsLoaded(true);
+              localStorage.setItem('unidrink_products', JSON.stringify(realData));
               setErrorStatus(null);
             }
           } catch (e: any) {
@@ -75,20 +78,26 @@ const Home = () => {
             if (!cancelled) setSyncing(false);
           }
         } else if (error) {
+          if (!productsLoaded) {
+            setProducts(defaultData as unknown as Product[]);
+          }
           setErrorStatus(error.message);
-          setProducts(defaultData as unknown as Product[]);
           setLoading(false);
         } else if (data) {
-          // Supabase phản hồi nhanh (đã ấm) → dùng data thật ngay
+          // Supabase phản hồi nhanh → dùng data thật ngay
           setProducts(data);
+          setProductsLoaded(true);
+          localStorage.setItem('unidrink_products', JSON.stringify(data));
           setErrorStatus(null);
           setLoading(false);
         }
       } catch (err: any) {
         console.error('[UniDrink] fetchProducts error:', err);
         if (!cancelled) {
+          if (!productsLoaded) {
+            setProducts(defaultData as unknown as Product[]);
+          }
           setErrorStatus(err?.message || 'Request failed');
-          setProducts(defaultData as unknown as Product[]);
           setLoading(false);
         }
       }
@@ -96,7 +105,7 @@ const Home = () => {
 
     fetchProducts();
     return () => { cancelled = true; };
-  }, []);
+  }, [productsLoaded, setProducts, setProductsLoaded]);
 
   // Filter and sort client-side instantly
   const filteredProducts = useMemo(() => {

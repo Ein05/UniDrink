@@ -5,7 +5,7 @@ import { AnimatePresence } from 'motion/react';
 import { AppContext } from './context/AppContext';
 import { translations } from './translations';
 import { useCart } from './hooks/useCart';
-import type { Language } from './types';
+import type { Language, Product } from './types';
 
 import Header from './components/Header';
 import Footer from './components/Footer';
@@ -39,6 +39,15 @@ export default function App() {
     return (saved as Language) || 'VI';
   });
 
+  const [products, setProducts] = useState<Product[]>(() => {
+    const saved = localStorage.getItem('unidrink_products');
+    return saved ? JSON.parse(saved) : [];
+  });
+  
+  const [productsLoaded, setProductsLoaded] = useState(() => {
+    return localStorage.getItem('unidrink_products') !== null;
+  });
+
   const cart = useCart();
 
   useEffect(() => {
@@ -49,7 +58,16 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <AppContext.Provider value={{ lang, setLang, t, cart }}>
+      <AppContext.Provider value={{
+        lang,
+        setLang,
+        t,
+        cart,
+        products,
+        setProducts,
+        productsLoaded,
+        setProductsLoaded
+      }}>
         <div className="min-h-screen flex flex-col">
           <Header />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-10 pt-28">

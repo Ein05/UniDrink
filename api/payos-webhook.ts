@@ -20,11 +20,13 @@ export default async function handler(req: any, res: any) {
   }
 
   // Initialize clients inside handler to avoid crash on missing env vars at startup
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
   const missingVars = [
     !process.env.PAYOS_CLIENT_ID && 'PAYOS_CLIENT_ID',
     !process.env.PAYOS_API_KEY && 'PAYOS_API_KEY',
     !process.env.PAYOS_CHECKSUM_KEY && 'PAYOS_CHECKSUM_KEY',
     !process.env.SUPABASE_SERVICE_ROLE_KEY && 'SUPABASE_SERVICE_ROLE_KEY',
+    !supabaseUrl && 'SUPABASE_URL (or VITE_SUPABASE_URL)',
   ].filter(Boolean);
 
   if (missingVars.length > 0) {
@@ -32,18 +34,17 @@ export default async function handler(req: any, res: any) {
     return res.status(500).json({ error: `Missing required environment variables: ${missingVars.join(', ')}` });
   }
 
-  const payOS = new PayOS({
-    clientId: process.env.PAYOS_CLIENT_ID!,
-    apiKey: process.env.PAYOS_API_KEY!,
-    checksumKey: process.env.PAYOS_CHECKSUM_KEY!,
-  });
-
-  const supabase = createClient(
-    process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '',
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
-
   try {
+    const payOS = new PayOS({
+      clientId: process.env.PAYOS_CLIENT_ID!,
+      apiKey: process.env.PAYOS_API_KEY!,
+      checksumKey: process.env.PAYOS_CHECKSUM_KEY!,
+    });
+
+    const supabase = createClient(
+      supabaseUrl!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     // 1. Verify the webhook payload signature securely
     const webhookData = await payOS.webhooks.verify(req.body);
 

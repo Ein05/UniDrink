@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, CupSoda, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
-import { supabase } from '../lib/supabase';
+import { supabase, defaultData } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
 import type { Product } from '../types';
 
@@ -30,18 +30,33 @@ const Home = () => {
 
     async function fetchProducts() {
       try {
-        const { data, error } = await supabase
-          .from('products')
-          // FIX #4: bỏ filter is_available để hiển thị overlay "hết hàng" đúng nghiệp vụ
-          .select('*')
-          .eq('is_deleted', false);
+        // Race giữa Supabase query và timeout 8 giây — tránh spinner vô tận
+        type FetchResult = { data: Product[] | null; error: { message: string } | null };
 
-        if (error) {
+        const supabasePromise = Promise.resolve(
+          supabase.from('products').select('*').eq('is_deleted', false)
+        ) as Promise<FetchResult>;
+
+        const timeoutPromise = new Promise<FetchResult>((resolve) =>
+          setTimeout(() => resolve({ data: null, error: { message: '__timeout__' } }), 8000)
+        );
+
+        const { data, error } = await Promise.race([supabasePromise, timeoutPromise]);
+
+        if (error?.message === '__timeout__') {
+          // Supabase không phản hồi sau 8s — fallback demo data
+          console.warn('[UniDrink] Supabase timeout — showing demo data');
+          setProducts(defaultData as unknown as Product[]);
+          setErrorStatus(null);
+        } else if (error) {
           setErrorStatus(error.message);
         } else if (data) {
           setProducts(data);
           setErrorStatus(null);
         }
+      } catch (err) {
+        console.error('[UniDrink] fetchProducts error:', err);
+        setProducts(defaultData as unknown as Product[]);
       } finally {
         setLoading(false);
       }

@@ -78,18 +78,7 @@ export default async function handler(req: any, res: any) {
 
     if (fetchError || !order) {
       console.warn(`[PayOS Webhook] Order ${orderCodeText} not found in DB:`, fetchError);
-      let projectRef = 'unknown';
-      try {
-        projectRef = new URL(supabaseUrl!).hostname.split('.')[0];
-      } catch (e) {}
-      return res.status(200).json({ 
-        success: true, 
-        message: `Order ${orderCodeText} not found, acknowledged.`,
-        debug: {
-          projectRef,
-          fetchError: fetchError ? { message: fetchError.message, details: fetchError.details, hint: fetchError.hint } : null
-        }
-      });
+      return res.status(200).json({ success: true, message: `Order ${orderCodeText} not found, acknowledged.` });
     }
 
     // 5. Check if the order is already marked as paid (Idempotency check)

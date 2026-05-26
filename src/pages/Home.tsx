@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, CupSoda, ArrowUp, ArrowDown } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useApp } from '../context/AppContext';
-import { supabase, defaultData } from '../lib/supabase';
+import { supabase, defaultData, withTimeout } from '../lib/supabase';
 import ProductCard from '../components/ProductCard';
 import type { Product } from '../types';
 
@@ -33,10 +33,14 @@ const Home = () => {
     async function fetchProducts() {
       type FetchResult = { data: Product[] | null; error: { message: string } | null };
 
-      const supabasePromise = supabase
-        .from('products')
-        .select('*')
-        .eq('is_deleted', false) as unknown as Promise<FetchResult>;
+      // Bọc supabase query với timeout tối đa 10 giây
+      const supabasePromise = withTimeout(
+        supabase
+          .from('products')
+          .select('*')
+          .eq('is_deleted', false) as unknown as Promise<any>,
+        10000
+      ) as unknown as Promise<FetchResult>;
 
       // Sau 3 giây chưa có data → hiện demo data ngay, tiếp tục chờ Supabase trong nền
       const quickFallbackPromise = new Promise<FetchResult>((resolve) =>
@@ -55,7 +59,7 @@ const Home = () => {
           setLoading(false);
           setSyncing(true); // hiện indicator nhỏ "đang đồng bộ"
 
-          // Tiếp tục chờ Supabase thức dậy (có thể 30-60s do free tier cold start)
+          // Tiếp tục chờ Supabase thức dậy (tối đa 10s nhờ timeout)
           try {
             const { data: realData, error: realError } = await supabasePromise;
             if (cancelled) return;
@@ -64,7 +68,8 @@ const Home = () => {
               setProducts(realData);
               setErrorStatus(null);
             }
-          } catch {
+          } catch (e: any) {
+            console.warn('[UniDrink] Background sync failed or timed out:', e?.message || e);
             // Giữ nguyên demo data nếu Supabase vẫn không được
           } finally {
             if (!cancelled) setSyncing(false);
@@ -79,9 +84,10 @@ const Home = () => {
           setErrorStatus(null);
           setLoading(false);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('[UniDrink] fetchProducts error:', err);
         if (!cancelled) {
+          setErrorStatus(err?.message || 'Request failed');
           setProducts(defaultData as unknown as Product[]);
           setLoading(false);
         }

@@ -55,6 +55,11 @@ DECLARE
     v_product_name TEXT;
     v_product_name_en TEXT;
 BEGIN
+    -- Empty Order Check
+    IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
+        RAISE EXCEPTION 'Đơn hàng phải có ít nhất một sản phẩm.';
+    END IF;
+
     -- Anti-Spam Check
     IF EXISTS (SELECT 1 FROM public.blacklisted_emails WHERE email = LOWER(TRIM(p_customer_email))) THEN
         RAISE EXCEPTION 'Email này đã bị khoá hệ thống do vi phạm chính sách spam.';

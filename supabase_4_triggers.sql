@@ -6,10 +6,17 @@
 -- 1. Trigger function for automatic logging on order changes
 CREATE OR REPLACE FUNCTION public.log_order_changes()
 RETURNS TRIGGER AS $$
+DECLARE
+    v_changed_by TEXT := 'Customer';
 BEGIN
+    -- Detect who performed the action
+    IF public.is_admin() THEN
+        v_changed_by := 'Admin';
+    END IF;
+
     IF (TG_OP = 'INSERT') THEN
-        INSERT INTO public.order_logs (order_id, action_type, description)
-        VALUES (NEW.id, 'create', 'Đơn hàng được khởi tạo thành công.');
+        INSERT INTO public.order_logs (order_id, action_type, changed_by, description)
+        VALUES (NEW.id, 'create', v_changed_by, 'Đơn hàng được khởi tạo thành công.');
 
     ELSIF (TG_OP = 'UPDATE') THEN
         -- Order status changed
@@ -32,8 +39,8 @@ BEGIN
                     WHEN NEW.status = 'cancelled'  THEN 'Đã hủy'
                     ELSE NEW.status
                 END;
-                INSERT INTO public.order_logs (order_id, action_type, description)
-                VALUES (NEW.id, 'update_status',
+                INSERT INTO public.order_logs (order_id, action_type, changed_by, description)
+                VALUES (NEW.id, 'update_status', v_changed_by,
                     'Trạng thái đơn hàng thay đổi từ "' || old_status_text || '" sang "' || new_status_text || '".');
             END;
         END IF;
@@ -44,21 +51,22 @@ BEGIN
                 old_paid_text TEXT := CASE WHEN OLD.is_paid THEN 'Đã thanh toán' ELSE 'Chưa thanh toán' END;
                 new_paid_text TEXT := CASE WHEN NEW.is_paid THEN 'Đã thanh toán' ELSE 'Chưa thanh toán' END;
             BEGIN
-                INSERT INTO public.order_logs (order_id, action_type, description)
-                VALUES (NEW.id, 'update_payment',
+                INSERT INTO public.order_logs (order_id, action_type, changed_by, description)
+                VALUES (NEW.id, 'update_payment', v_changed_by,
                     'Trạng thái thanh toán thay đổi từ "' || old_paid_text || '" sang "' || new_paid_text || '".');
             END;
         END IF;
 
         -- Order details edited (name, phone, address, note, total, payment_method)
+        -- Only log total_price changes if the old total_price was greater than 0 (meaning it was not the initial order creation)
         IF OLD.customer_name     IS DISTINCT FROM NEW.customer_name  OR
            OLD.customer_phone    IS DISTINCT FROM NEW.customer_phone OR
            OLD.address           IS DISTINCT FROM NEW.address        OR
            OLD.note              IS DISTINCT FROM NEW.note           OR
-           OLD.total_price       IS DISTINCT FROM NEW.total_price    OR
+           (OLD.total_price IS DISTINCT FROM NEW.total_price AND OLD.total_price > 0) OR
            OLD.payment_method    IS DISTINCT FROM NEW.payment_method THEN
-            INSERT INTO public.order_logs (order_id, action_type, description)
-            VALUES (NEW.id, 'edit_details', 'Thông tin đơn hàng được quản trị viên chỉnh sửa.');
+            INSERT INTO public.order_logs (order_id, action_type, changed_by, description)
+            VALUES (NEW.id, 'edit_details', v_changed_by, 'Thông tin đơn hàng được chỉnh sửa.');
         END IF;
     END IF;
 

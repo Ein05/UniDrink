@@ -32,18 +32,11 @@ const Checkout = () => {
   const [authLoading, setAuthLoading] = useState(() => hasStoredSession());
 
   React.useEffect(() => {
-    // Chỉ cần gọi getSession nếu có token (đã set authLoading=true)
+    // onAuthStateChange fires INITIAL_SESSION immediately — no need for separate getSession call
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setAuthLoading(false);
     });
-
-    // Lần đầu load: lấy session hiện tại
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 

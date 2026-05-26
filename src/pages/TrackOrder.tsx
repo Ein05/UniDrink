@@ -34,16 +34,11 @@ const TrackOrder = () => {
 
   /* ── Auth ── */
   useEffect(() => {
+    // onAuthStateChange fires INITIAL_SESSION immediately — no need for separate getSession call
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setSession(session);
       setAuthLoading(false);
     });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setAuthLoading(false);
-    });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -111,6 +106,8 @@ const TrackOrder = () => {
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
+    // Clear admin cache so next login re-checks correctly
+    sessionStorage.removeItem('is_admin');
     setOrders([]);
     setExpanded({});
   };

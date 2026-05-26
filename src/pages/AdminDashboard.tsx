@@ -121,7 +121,7 @@ const AdminDashboard = () => {
       if (order.status === 'cancelled') {
         acc[date].cancelledOrders += 1;
       }
-      if (order.status === 'pending') {
+      if (order.status === 'pending' || order.status === 'processing') {
         acc[date].pendingOrders += 1;
       }
       return acc;
@@ -171,8 +171,8 @@ const AdminDashboard = () => {
     if (reportsByDate.length === 0) return;
 
     const headers = lang === 'EN'
-      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Unpaid Amount (VND)', 'Unapproved Orders', 'Revenue (VND)']
-      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Tiền chưa thu (VND)', 'Đơn chưa duyệt', 'Doanh thu (VND)'];
+      ? ['Date', 'Total Orders', 'Completed Orders', 'Cancelled Orders', 'Unpaid Done Orders', 'Unpaid Amount (VND)', 'Pending/Processing Orders', 'Revenue (VND)']
+      : ['Ngày', 'Tổng số đơn', 'Số đơn hoàn thành', 'Số đơn đã hủy', 'Đơn done chưa thu tiền', 'Tiền chưa thu (VND)', 'Đơn chưa duyệt / Đang làm', 'Doanh thu (VND)'];
 
     const rows = reportsByDate.map(r => [
       r.date,

@@ -123,7 +123,7 @@ export const translations = {
     colAction: "Thao tác",
     colDetails: "Chi tiết thay đổi",
     exportReport: "Xuất báo cáo (CSV)",
-    colPendingOrders: "Chưa duyệt",
+    colPendingOrders: "Chưa duyệt / Đang làm",
     colUnpaidRevenue: "Tiền chưa thu",
 
     editProduct: "Chỉnh sửa sản phẩm",
@@ -290,7 +290,7 @@ export const translations = {
     colAction: "Action",
     colDetails: "Change Details",
     exportReport: "Export Report (CSV)",
-    colPendingOrders: "Unapproved",
+    colPendingOrders: "Pending/Processing",
     colUnpaidRevenue: "Unpaid Amount",
 
     editProduct: "Edit Product",

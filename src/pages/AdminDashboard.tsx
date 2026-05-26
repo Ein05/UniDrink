@@ -599,6 +599,49 @@ const AdminDashboard = () => {
     }
   };
 
+  // Khôi phục danh mục mặc định (upsert, không xóa danh mục tùy chỉnh)
+  const seedDefaultCategories = async () => {
+    const defaults: Category[] = [
+      { id: 'coffee',   name_vi: 'Cà Phê',  name_en: 'Coffee'   },
+      { id: 'tea',      name_vi: 'Trà',      name_en: 'Tea'      },
+      { id: 'teaMilk',  name_vi: 'Trà Sữa',  name_en: 'Milk Tea' },
+      { id: 'juice',    name_vi: 'Nước Ép',  name_en: 'Juice'    },
+      { id: 'smoothie', name_vi: 'Sinh Tố',  name_en: 'Smoothie' },
+    ];
+    const confirmed = window.confirm(
+      lang === 'EN'
+        ? 'This will upsert default categories (coffee, tea, teaMilk, juice, smoothie). Custom categories will NOT be deleted. Continue?'
+        : 'Thao tác này sẽ upsert các danh mục mặc định (coffee, tea, teaMilk, juice, smoothie). Danh mục tùy chỉnh khác sẽ KHAI GIỪ NGUYÊN. Tiếp tục?'
+    );
+    if (!confirmed) return;
+
+    setSavingCategory(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('categories')
+        .upsert(defaults, { onConflict: 'id' });
+
+      if (error) {
+        alert((lang === 'EN' ? 'Failed to restore defaults: ' : 'Lỗi khôi phục mặc định: ') + error.message);
+      } else {
+        // Merge vào state hiện tại
+        setCategories(prev => {
+          const merged = [...prev];
+          for (const def of defaults) {
+            const idx = merged.findIndex(c => c.id === def.id);
+            if (idx >= 0) merged[idx] = def;
+            else merged.push(def);
+          }
+          localStorage.setItem('unidrink_categories', JSON.stringify(merged));
+          return merged;
+        });
+        alert(lang === 'EN' ? '✅ Default categories restored!' : '✅ Đã khôi phục danh mục mặc định!');
+      }
+    } finally {
+      setSavingCategory(false);
+    }
+  };
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/admin');
@@ -985,14 +1028,26 @@ const AdminDashboard = () => {
                   </button>
                 </form>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => setIsAddingCategory(true)}
-                  className="px-5 py-2 rounded-2xl text-xs font-bold border-2 border-dashed border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown transition-all flex items-center gap-1.5"
-                >
-                  <span>➕</span>
-                  <span>{lang === 'EN' ? 'Add Category' : 'Thêm danh mục'}</span>
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="px-5 py-2 rounded-2xl text-xs font-bold border-2 border-dashed border-brand-beige text-brand-muted hover:border-brand-brown hover:text-brand-brown transition-all flex items-center gap-1.5"
+                  >
+                    <span>➕</span>
+                    <span>{lang === 'EN' ? 'Add Category' : 'Thêm danh mục'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={seedDefaultCategories}
+                    disabled={savingCategory}
+                    className="px-5 py-2 rounded-2xl text-xs font-bold border border-brand-beige text-brand-muted hover:border-brand-caramel hover:text-brand-caramel transition-all flex items-center gap-1.5 disabled:opacity-50"
+                    title={lang === 'EN' ? 'Restore default categories (coffee, tea, teaMilk, juice, smoothie)' : 'Khôi phục danh mục mặc định'}
+                  >
+                    <span>↺</span>
+                    <span>{lang === 'EN' ? 'Restore Defaults' : 'Khôi phục mặc định'}</span>
+                  </button>
+                </div>
               )}
             </div>
           </div>

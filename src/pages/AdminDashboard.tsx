@@ -1352,34 +1352,35 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              {/* Nhóm hàng (category) — input tự do + gợi ý */}
+              {/* Nhóm hàng (category) — chỉ chọn từ danh mục đã tạo */}
               <div className="space-y-1">
                 <label className="text-[10px] uppercase font-black tracking-widest text-brand-muted">
                   {t.productCategory}
-                  <span className="ml-2 normal-case font-medium text-brand-muted/60">
-                    {lang === 'EN' ? '(type freely or pick a suggestion)' : '(gõ tự do hoặc chọn gợi ý)'}
-                  </span>
                 </label>
-                <input
+                <select
                   required
                   name="category"
-                  list="category-suggestions"
                   defaultValue={editingProduct.category}
                   className="w-full bg-white border border-brand-beige rounded-xl px-4 py-2.5 text-sm outline-none focus:border-brand-brown"
-                  placeholder={lang === 'EN' ? 'e.g. coffee, teaMilk, juice...' : 'Ví dụ: coffee, teaMilk, juice...'}
-                />
-                <datalist id="category-suggestions">
-                  <option value="coffee">{lang === 'EN' ? 'Coffee' : 'Cà phê'}</option>
-                  <option value="teaMilk">{lang === 'EN' ? 'Milk Tea' : 'Trà Sữa'}</option>
-                  <option value="tea">{lang === 'EN' ? 'Tea' : 'Trà'}</option>
-                  <option value="juice">{lang === 'EN' ? 'Juice' : 'Nước ép'}</option>
-                  <option value="smoothie">{lang === 'EN' ? 'Smoothie' : 'Sinh Tố'}</option>
-                </datalist>
-                <p className="text-[10px] text-amber-600 font-bold">
-                  {lang === 'EN'
-                    ? '⚠ If you use a new category name, add it to Home.tsx categories list to show filter button.'
-                    : '⚠ Nếu tạo nhóm mới, cần thêm vào danh sách categories trong Home.tsx để hiện nút lọc.'}
-                </p>
+                >
+                  {categories.length === 0 && (
+                    <option value="" disabled>
+                      {lang === 'EN' ? '— No categories yet —' : '— Chưa có danh mục nào —'}
+                    </option>
+                  )}
+                  {categories.map(cat => (
+                    <option key={cat.id} value={cat.id}>
+                      {lang === 'EN' ? cat.name_en : cat.name_vi} ({cat.id})
+                    </option>
+                  ))}
+                </select>
+                {categories.length === 0 && (
+                  <p className="text-[10px] text-red-500 font-bold">
+                    {lang === 'EN'
+                      ? '⚠ Please create a category first before adding a product.'
+                      : '⚠ Vui lòng tạo danh mục trước khi thêm sản phẩm.'}
+                  </p>
+                )}
               </div>
 
               {/* Emoji */}

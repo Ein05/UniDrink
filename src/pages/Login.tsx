@@ -35,14 +35,20 @@ const Login = () => {
       return;
     }
 
-    // Kiểm tra quyền admin để điều hướng mặc định
+    // Kiểm tra quyền admin để điều hướng mặc định (dùng cache nếu đã có)
     let isAdmin = false;
     try {
-      const { data } = await withTimeout(
-        (supabase as any).rpc('check_is_admin'),
-        20000
-      ) as any;
-      isAdmin = !!data;
+      const cached = sessionStorage.getItem('is_admin');
+      if (cached !== null) {
+        isAdmin = cached === 'true';
+      } else {
+        const { data } = await withTimeout(
+          (supabase as any).rpc('check_is_admin'),
+          5000
+        ) as any;
+        isAdmin = !!data;
+        sessionStorage.setItem('is_admin', String(isAdmin));
+      }
     } catch (err) {
       console.warn('[UniDrink] check_is_admin timed out or failed in Login:', err);
     }

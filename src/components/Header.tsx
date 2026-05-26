@@ -18,40 +18,36 @@ const Header = () => {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        let isAdminVal = false;
-        try {
-          const { data } = await withTimeout(
-            (supabase as any).rpc('check_is_admin'),
-            15000
-          ) as any;
-          isAdminVal = !!data;
-        } catch (err) {
-          console.warn('[UniDrink] check_is_admin timeout/error in Header session:', err);
-        }
-        setIsAdmin(isAdminVal);
-      } else {
-        setIsAdmin(false);
-      }
-    });
+    const checkAdmin = async (session: any): Promise<boolean> => {
+      if (!session) return false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      // Use cached result to avoid repeated slow RPC calls
+      const cached = sessionStorage.getItem('is_admin');
+      if (cached !== null) return cached === 'true';
+
+      try {
+        const { data } = await withTimeout(
+          (supabase as any).rpc('check_is_admin'),
+          5000  // 5s is enough for a simple DB lookup
+        ) as any;
+        const result = !!data;
+        sessionStorage.setItem('is_admin', String(result));
+        return result;
+      } catch (err) {
+        console.warn('[UniDrink] check_is_admin timeout/error in Header:', err);
+        return false;
+      }
+    };
+
+    // onAuthStateChange fires INITIAL_SESSION immediately on mount —
+    // no need to call getSession separately and double-invoke check_is_admin
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setSession(session);
       if (session) {
-        let isAdminVal = false;
-        try {
-          const { data } = await withTimeout(
-            (supabase as any).rpc('check_is_admin'),
-            15000
-          ) as any;
-          isAdminVal = !!data;
-        } catch (err) {
-          console.warn('[UniDrink] check_is_admin timeout/error in Header auth change:', err);
-        }
-        setIsAdmin(isAdminVal);
+        setIsAdmin(await checkAdmin(session));
       } else {
+        // Clear cache on sign out
+        sessionStorage.removeItem('is_admin');
         setIsAdmin(false);
       }
     });

@@ -124,7 +124,7 @@ const Checkout = () => {
   }
 
   // Giỏ hàng trống
-  if (cart.items.length === 0 && !successCode) {
+  if (cart.items.filter(item => item.quantity > 0).length === 0 && !successCode) {
     return <Navigate to="/" replace />;
   }
 
@@ -150,7 +150,7 @@ const Checkout = () => {
           p_note: formData.note.trim(),
           p_payment_method: formData.paymentMethod,
           p_customer_email: session?.user?.email || '',
-          p_items: cart.items.map(item => ({ id: item.id, quantity: item.quantity })),
+          p_items: cart.items.filter(item => item.quantity > 0).map(item => ({ id: item.id, quantity: item.quantity })),
         }),
         30000
       ) as any;
@@ -478,7 +478,7 @@ const Checkout = () => {
           <h3 className="font-serif text-2xl font-bold text-brand-ink">{t.confirmTitle}</h3>
 
           <div className="space-y-4">
-            {cart.items.map(item => (
+            {cart.items.filter(item => item.quantity > 0).map(item => (
               <div key={item.id} className="flex justify-between items-center text-brand-ink">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-brand-cream rounded-xl flex items-center justify-center text-xl shrink-0 relative overflow-hidden">

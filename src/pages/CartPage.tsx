@@ -113,7 +113,8 @@ const CartPage = () => {
 
             <button
               onClick={() => navigate('/checkout')}
-              className="w-full py-5 bg-brand-brown text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-brand-brown/20 hover:scale-[1.02] active:scale-95 transition-all"
+              disabled={cart.total <= 0}
+              className="w-full py-5 bg-brand-brown text-white rounded-2xl font-black uppercase tracking-[0.2em] text-xs shadow-lg shadow-brand-brown/20 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {t.cartCheckoutButton} • {formatCurrency(cart.total)}
             </button>

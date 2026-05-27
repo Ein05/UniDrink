@@ -94,9 +94,9 @@ const Header = () => {
 
           <Link to="/cart" className="relative p-1.5 sm:p-2 text-brand-ink hover:text-brand-brown transition-colors">
             <ShoppingCart className="w-5 h-5 md:w-6 md:h-6 stroke-[1.5]" />
-            {cart.items.length > 0 && (
+            {cart.items.filter(i => i.quantity > 0).length > 0 && (
               <span className="absolute top-0 right-0 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-brand-caramel text-white text-[9px] sm:text-[10px] flex items-center justify-center rounded-full font-bold">
-                {cart.items.length}
+                {cart.items.filter(i => i.quantity > 0).length}
               </span>
             )}
           </Link>

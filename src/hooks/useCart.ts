@@ -53,8 +53,7 @@ export function useCart() {
   };
 
   const updateQuantity = (id: string, quantity: number) => {
-    if (quantity < 1) {
-      removeFromCart(id);
+    if (quantity < 0) {
       return;
     }
     if (quantity > MAX_QUANTITY) {

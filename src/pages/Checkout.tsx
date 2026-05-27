@@ -155,7 +155,7 @@ const Checkout = () => {
             setTimeout(() => {
               try {
                 const payos = (window as any).PayOSCheckout.usePayOS({
-                  RETURN_URL: `${window.location.origin}/track?code=${orderCodeText}&payOSStatus=success`,
+                  RETURN_URL: `${window.location.origin}/track`,
                   ELEMENT_ID: 'payos-checkout-container',
                   CHECKOUT_URL: payosData.checkoutUrl,
                   embedded: true,

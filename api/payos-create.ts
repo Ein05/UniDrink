@@ -63,8 +63,8 @@ export default async function handler(req: any, res: any) {
           price: Math.round(totalPrice),
         }
       ],
-      returnUrl: `${baseUrl}/track?code=${orderCodeText}&payOSStatus=success`,
-      cancelUrl: `${baseUrl}/track?code=${orderCodeText}&payOSStatus=cancelled`,
+      returnUrl: `${baseUrl}/track`,
+      cancelUrl: `${baseUrl}/track`,
     };
 
     const paymentLink = await payOS.paymentRequests.create(paymentData);

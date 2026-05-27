@@ -86,11 +86,16 @@ export default function App() {
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('payOSStatus') === 'success') {
+      // code = '00' or status = 'PAID' is the standard success response from PayOS
+      if (params.get('code') === '00' || params.get('status') === 'PAID') {
         cart.clearCart();
-        // Remove param from URL to keep it clean and prevent repeat clears
+        // Remove PayOS params from URL to keep it clean
         const url = new URL(window.location.href);
-        url.searchParams.delete('payOSStatus');
+        url.searchParams.delete('code');
+        url.searchParams.delete('id');
+        url.searchParams.delete('status');
+        url.searchParams.delete('cancel');
+        url.searchParams.delete('orderCode');
         window.history.replaceState({}, document.title, url.pathname + url.search);
       }
     } catch (e) {

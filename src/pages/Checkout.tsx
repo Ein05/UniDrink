@@ -371,8 +371,19 @@ const Checkout = () => {
             {cart.items.map(item => (
               <div key={item.id} className="flex justify-between items-center text-brand-ink">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-brand-cream rounded-xl flex items-center justify-center text-xl shrink-0">
-                    {item.emoji || '☕'}
+                  <div className="w-10 h-10 bg-brand-cream rounded-xl flex items-center justify-center text-xl shrink-0 relative overflow-hidden">
+                    <span className="absolute inset-0 flex items-center justify-center z-0">{item.emoji || '☕'}</span>
+                    {item.image_url && (
+                      <img 
+                        src={item.image_url} 
+                        alt={lang === 'EN' ? item.name_en || item.name : item.name} 
+                        className="w-full h-full object-cover rounded-xl absolute inset-0 z-10 bg-brand-cream" 
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                        }}
+                      />
+                    )}
                   </div>
                   <div>
                     <p className="font-bold uppercase tracking-tight text-xs leading-none mb-1">

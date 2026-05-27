@@ -55,7 +55,17 @@ DECLARE
     v_price NUMERIC;
     v_product_name TEXT;
     v_product_name_en TEXT;
+    v_spam_limit INTEGER := 3;
+    v_pending_count INTEGER;
 BEGIN
+    -- Blacklist check
+    IF EXISTS (
+        SELECT 1 FROM public.blacklisted_emails
+        WHERE LOWER(TRIM(email)) = LOWER(TRIM(p_customer_email))
+    ) THEN
+        RAISE EXCEPTION 'Email của bạn đã bị khóa mua hàng do vi phạm chính sách (Spam).';
+    END IF;
+
     -- Empty Order Check
     IF p_items IS NULL OR jsonb_array_length(p_items) = 0 THEN
         RAISE EXCEPTION 'Đơn hàng phải có ít nhất một sản phẩm.';
@@ -106,6 +116,25 @@ BEGIN
 
     -- Commit final order total
     UPDATE public.orders SET total_price = v_total_price WHERE id = v_order_id;
+
+    -- Check pending orders limit
+    SELECT COALESCE(value::INTEGER, 3) INTO v_spam_limit
+    FROM public.settings
+    WHERE key = 'spam_order_limit';
+
+    SELECT COUNT(*) INTO v_pending_count
+    FROM public.orders
+    WHERE LOWER(TRIM(customer_email)) = LOWER(TRIM(p_customer_email))
+      AND status = 'pending';
+
+    IF v_pending_count >= v_spam_limit THEN
+        INSERT INTO public.blacklisted_emails (email, reason)
+        VALUES (
+            LOWER(TRIM(p_customer_email)), 
+            'Hệ thống tự động khóa: Vượt quá giới hạn đơn hàng chưa duyệt (' || v_spam_limit || ' đơn)'
+        )
+        ON CONFLICT (email) DO NOTHING;
+    END IF;
 
     RETURN v_order_code;
 END;

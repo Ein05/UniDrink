@@ -18,3 +18,8 @@ VALUES
     ('5', 'Sinh Tố Bơ', 'Avocado Smoothie', 40000, 'smoothie', '🥑', 'Bơ sáp béo ngậy xay mịn.', 'Creamy avocado smoothie.', true),
     ('6', 'Nước Tinh Khiết', 'Mineral Water', 15000, 'nuoc', '💧', 'Nước khoáng đóng chai mát lạnh.', 'Chilled pure bottled mineral water.', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- 3. Seed Default System Settings
+INSERT INTO public.settings (key, value, description)
+VALUES ('spam_order_limit', '3', 'Số đơn hàng chưa duyệt tối đa trước khi bị tự động khóa email')
+ON CONFLICT (key) DO NOTHING;

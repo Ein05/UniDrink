@@ -38,8 +38,19 @@ const CartPage = () => {
           <div className="bg-white rounded-[2.5rem] overflow-hidden border border-brand-beige shadow-sm">
             {cart.items.map((item) => (
               <div key={item.id} className="p-4 md:p-6 flex flex-wrap sm:flex-nowrap items-center gap-4 md:gap-5 border-b border-brand-beige last:border-0 hover:bg-brand-cream/30 transition-colors">
-                <div className="w-16 h-16 md:w-20 md:h-20 bg-brand-cream rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0 group">
-                  <span className="group-hover:scale-110 transition-transform">{item.emoji || '☕'}</span>
+                <div className="w-16 h-16 md:w-20 md:h-20 bg-brand-cream rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0 relative overflow-hidden group">
+                  <span className="group-hover:scale-110 transition-transform absolute inset-0 flex items-center justify-center z-0">{item.emoji || '☕'}</span>
+                  {item.image_url && (
+                    <img 
+                      src={item.image_url} 
+                      alt={lang === 'EN' ? item.name_en || item.name : item.name} 
+                      className="w-full h-full object-cover rounded-2xl absolute inset-0 z-10 bg-brand-cream" 
+                      loading="lazy"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).style.display = 'none';
+                      }}
+                    />
+                  )}
                 </div>
                 <div className="grow">
                   <h3 className="font-bold text-brand-ink uppercase tracking-tight text-lg leading-tight">

@@ -85,6 +85,15 @@ INSERT INTO public.categories (id, name_vi, name_en) VALUES
     ('smoothie', 'Sinh Tố',  'Smoothie')
 ON CONFLICT (id) DO NOTHING;
 
+-- 8. Settings Table (Global configurations)
+CREATE TABLE IF NOT EXISTS public.settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- ============================================================
 -- ENABLE ROW LEVEL SECURITY (RLS) IMMEDIATELY
 -- ============================================================
@@ -94,6 +103,7 @@ ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.order_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
 
 -- ============================================================
 -- CREATE PERFORMANCE INDEXES

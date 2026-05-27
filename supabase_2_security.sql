@@ -15,6 +15,8 @@ DROP POLICY IF EXISTS "Allow admin update orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow read order_items if order is viewable" ON public.order_items;
 DROP POLICY IF EXISTS "Allow insert order_items" ON public.order_items;
 DROP POLICY IF EXISTS "Allow read order_logs if order is viewable" ON public.order_logs;
+DROP POLICY IF EXISTS "Allow public read access to settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin write access to settings" ON public.settings;
 
 -- 2. Helper Admin Checking Function (Marked as STABLE for performance)
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
@@ -49,6 +51,13 @@ CREATE POLICY "Allow public read access to categories" ON public.categories
     FOR SELECT USING (true);
 
 CREATE POLICY "Allow admin write access to categories" ON public.categories
+    FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+
+-- Settings: Everyone can read, only admin can write
+CREATE POLICY "Allow public read access to settings" ON public.settings
+    FOR SELECT USING (true);
+
+CREATE POLICY "Allow admin write access to settings" ON public.settings
     FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
 
 -- Products: Everyone can read, only Admin can write
@@ -118,3 +127,7 @@ GRANT SELECT          ON public.order_items  TO service_role;
 -- categories: everyone can read, authenticated admins can insert/update/delete
 GRANT SELECT ON public.categories TO anon, authenticated;
 GRANT INSERT, UPDATE, DELETE ON public.categories TO authenticated;
+
+-- settings: everyone can read, authenticated admins can insert/update/delete
+GRANT SELECT ON public.settings TO anon, authenticated;
+GRANT INSERT, UPDATE, DELETE ON public.settings TO authenticated;

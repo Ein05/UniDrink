@@ -49,9 +49,9 @@ const AdminDashboard = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'reports'>(() => {
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'reports' | 'settings'>(() => {
     const saved = localStorage.getItem('unidrink_admin_tab');
-    if (saved === 'orders' || saved === 'products' || saved === 'reports') {
+    if (saved === 'orders' || saved === 'products' || saved === 'reports' || saved === 'settings') {
       return saved;
     }
     return 'orders';
@@ -65,6 +65,11 @@ const AdminDashboard = () => {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const [blacklistedEmails, setBlacklistedEmails] = useState<string[]>([]);
+  const [blacklistDetails, setBlacklistDetails] = useState<Array<{ email: string, reason?: string, created_at?: string }>>([]);
+  const [spamOrderLimit, setSpamOrderLimit] = useState<number>(3);
+  const [savingSettings, setSavingSettings] = useState<boolean>(false);
+  const [newBlockEmail, setNewBlockEmail] = useState('');
+
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [savingCategory, setSavingCategory] = useState(false);
   const [isAddingCategory, setIsAddingCategory] = useState(false);
@@ -255,12 +260,34 @@ const AdminDashboard = () => {
         const { data, error } = await withTimeout(
           (supabase as any)
             .from('blacklisted_emails')
-            .select('email') as unknown as Promise<any>,
+            .select('*') as unknown as Promise<any>,
           25000
         );
-        if (!error && data) setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
+        if (!error && data) {
+          setBlacklistedEmails(data.map((item: any) => item.email.toLowerCase()));
+          setBlacklistDetails(data);
+        }
       } catch (e: any) {
         console.error('[UniDrink] Admin fetchBlacklistedEmails timeout/error:', e?.message || e);
+      }
+    };
+
+    const fetchSettings = async () => {
+      try {
+        const { data, error } = await withTimeout(
+          (supabase as any)
+            .from('settings')
+            .select('*') as unknown as Promise<any>,
+          25000
+        );
+        if (!error && data) {
+          const limitSetting = data.find((s: any) => s.key === 'spam_order_limit');
+          if (limitSetting) {
+            setSpamOrderLimit(parseInt(limitSetting.value, 10) || 3);
+          }
+        }
+      } catch (e: any) {
+        console.error('[UniDrink] Admin fetchSettings timeout/error:', e?.message || e);
       }
     };
 
@@ -283,7 +310,7 @@ const AdminDashboard = () => {
       }
 
       setIsAuthenticated(true);
-      await Promise.all([fetchOrders(), fetchProducts(), fetchBlacklistedEmails()]);
+      await Promise.all([fetchOrders(), fetchProducts(), fetchBlacklistedEmails(), fetchSettings()]);
 
       // FIX #2: chỉ subscribe realtime SAU KHI xác nhận auth
       channel = supabase
@@ -340,12 +367,15 @@ const AdminDashboard = () => {
     const cleanEmail = email.toLowerCase().trim();
     const isBlacklisted = blacklistedEmails.includes(cleanEmail);
     const previous = [...blacklistedEmails];
+    const previousDetails = [...blacklistDetails];
 
     // Optimistic Update
     if (isBlacklisted) {
       setBlacklistedEmails(prev => prev.filter(e => e !== cleanEmail));
+      setBlacklistDetails(prev => prev.filter(d => d.email.toLowerCase() !== cleanEmail));
     } else {
       setBlacklistedEmails(prev => [...prev, cleanEmail]);
+      setBlacklistDetails(prev => [...prev, { email: cleanEmail, reason: 'Spam orders', created_at: new Date().toISOString() }]);
     }
 
     if (isBlacklisted) {
@@ -355,6 +385,7 @@ const AdminDashboard = () => {
         .eq('email', cleanEmail);
       if (error) {
         setBlacklistedEmails(previous);
+        setBlacklistDetails(previousDetails);
         alert((lang === 'EN' ? 'Failed to unblock email: ' : 'Lỗi khi bỏ chặn email: ') + error.message);
       }
     } else {
@@ -363,8 +394,63 @@ const AdminDashboard = () => {
         .insert({ email: cleanEmail, reason: 'Spam orders' });
       if (error) {
         setBlacklistedEmails(previous);
+        setBlacklistDetails(previousDetails);
         alert((lang === 'EN' ? 'Failed to block email: ' : 'Lỗi khi chặn email: ') + error.message);
       }
+    }
+  };
+
+  const saveSettings = async (newLimit: number) => {
+    if (newLimit < 1) {
+      alert(lang === 'EN' ? 'Spam limit must be at least 1!' : 'Giới hạn spam phải tối thiểu là 1!');
+      return;
+    }
+    setSavingSettings(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('settings')
+        .upsert({
+          key: 'spam_order_limit',
+          value: String(newLimit),
+          description: 'Số đơn hàng chưa duyệt tối đa trước khi bị tự động khóa email'
+        });
+      if (error) {
+        alert((lang === 'EN' ? 'Failed to save settings: ' : 'Lỗi khi lưu cài đặt: ') + error.message);
+      } else {
+        alert(lang === 'EN' ? 'Settings saved successfully!' : 'Đã lưu cấu hình hệ thống thành công!');
+      }
+    } catch (e: any) {
+      alert((lang === 'EN' ? 'Error saving settings: ' : 'Lỗi khi lưu cài đặt: ') + e.message);
+    } finally {
+      setSavingSettings(false);
+    }
+  };
+
+  const handleManualBlock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = newBlockEmail.toLowerCase().trim();
+    if (!cleanEmail) return;
+    if (blacklistedEmails.includes(cleanEmail)) {
+      alert(lang === 'EN' ? 'This email is already blocked.' : 'Email này đã bị khóa từ trước.');
+      return;
+    }
+    const previous = [...blacklistedEmails];
+    const previousDetails = [...blacklistDetails];
+    
+    // Optimistic Update
+    setBlacklistedEmails(prev => [...prev, cleanEmail]);
+    setBlacklistDetails(prev => [...prev, { email: cleanEmail, reason: 'Chặn thủ công bởi Admin', created_at: new Date().toISOString() }]);
+    
+    const { error } = await (supabase as any)
+      .from('blacklisted_emails')
+      .insert({ email: cleanEmail, reason: 'Chặn thủ công bởi Admin' });
+    if (error) {
+      setBlacklistedEmails(previous);
+      setBlacklistDetails(previousDetails);
+      alert((lang === 'EN' ? 'Failed to block email: ' : 'Lỗi khi chặn email: ') + error.message);
+    } else {
+      setNewBlockEmail('');
+      alert(lang === 'EN' ? 'Email blocked successfully!' : 'Đã chặn email thành công!');
     }
   };
 
@@ -713,7 +799,7 @@ const AdminDashboard = () => {
         <div className="space-y-4">
           <h2 className="text-4xl md:text-5xl font-serif text-brand-ink">{t.adminTitle}</h2>
           <div className="flex gap-2">
-            {(['orders', 'products', 'reports'] as const).map(tab => (
+            {(['orders', 'products', 'reports', 'settings'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => {
@@ -727,7 +813,7 @@ const AdminDashboard = () => {
                     : "bg-white text-brand-muted border-brand-beige"
                 )}
               >
-                {tab === 'orders' ? t.orders : tab === 'products' ? (lang === 'EN' ? 'Inventory' : 'Kho hàng') : (lang === 'EN' ? 'Reports' : 'Báo cáo')}
+                {tab === 'orders' ? t.orders : tab === 'products' ? (lang === 'EN' ? 'Inventory' : 'Kho hàng') : tab === 'reports' ? (lang === 'EN' ? 'Reports' : 'Báo cáo') : t.settings}
               </button>
             ))}
           </div>
@@ -747,7 +833,138 @@ const AdminDashboard = () => {
         </div>
       </div>
 
-      {activeTab === 'reports' ? (
+      {activeTab === 'settings' ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-in fade-in slide-in-from-bottom-4 duration-300">
+          {/* Cấu hình chung */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-brand-beige shadow-sm">
+              <h3 className="text-xl font-serif font-black text-brand-ink mb-6">
+                ⚙️ {lang === 'EN' ? 'System Settings' : 'Cấu hình hệ thống'}
+              </h3>
+              <form onSubmit={e => { e.preventDefault(); saveSettings(spamOrderLimit); }} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2 font-sans">
+                    {lang === 'EN' ? 'Max Pending Orders' : 'Số đơn chờ duyệt tối đa'}
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={100}
+                    required
+                    value={spamOrderLimit}
+                    onChange={e => setSpamOrderLimit(parseInt(e.target.value, 10) || 1)}
+                    className="w-full bg-[#FAF9F5] border border-brand-beige rounded-2xl px-6 py-4 outline-none font-sans font-bold text-brand-ink focus:ring-2 focus:ring-brand-caramel transition-all"
+                  />
+                  <p className="text-xs text-brand-muted leading-relaxed px-2 font-sans">
+                    {lang === 'EN' 
+                      ? 'Customers placing this many orders without admin approval will be automatically blacklisted from ordering.'
+                      : 'Khách hàng đặt số đơn hàng này mà chưa được Admin duyệt sẽ bị tự động đưa vào danh sách đen.'}
+                  </p>
+                </div>
+                <button
+                  type="submit"
+                  disabled={savingSettings}
+                  className="w-full py-4 bg-brand-brown text-white rounded-2xl font-black uppercase text-[10px] tracking-widest hover:bg-brand-ink active:scale-95 transition-all shadow-lg shadow-brand-brown/10 flex items-center justify-center disabled:opacity-60"
+                >
+                  {savingSettings 
+                    ? (lang === 'EN' ? 'Saving...' : 'Đang lưu...')
+                    : (lang === 'EN' ? 'Save Configuration' : 'Lưu cấu hình')}
+                </button>
+              </form>
+            </div>
+
+            {/* Block Email Thủ công */}
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-brand-beige shadow-sm">
+              <h3 className="text-xl font-serif font-black text-brand-ink mb-6">
+                🚫 {lang === 'EN' ? 'Block Email Manually' : 'Chặn email thủ công'}
+              </h3>
+              <form onSubmit={handleManualBlock} className="space-y-6">
+                <div className="space-y-2">
+                  <label className="text-[10px] uppercase font-black text-brand-muted tracking-[0.2em] ml-2 font-sans">
+                    {lang === 'EN' ? 'Email Address' : 'Địa chỉ email'}
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="example@gmail.com"
+                    value={newBlockEmail}
+                    onChange={e => setNewBlockEmail(e.target.value)}
+                    className="w-full bg-[#FAF9F5] border border-brand-beige rounded-2xl px-6 py-4 outline-none font-medium text-brand-ink focus:ring-2 focus:ring-brand-caramel transition-all"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-4 bg-red-650 hover:bg-red-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-red-650/10"
+                >
+                  {lang === 'EN' ? 'Block Email' : 'Khóa Email'}
+                </button>
+              </form>
+            </div>
+          </div>
+
+          {/* Danh sách email bị chặn */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-[2.5rem] p-6 md:p-8 border border-brand-beige shadow-sm h-full flex flex-col">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-2xl font-serif font-black text-brand-ink leading-none mb-2">
+                    📋 {lang === 'EN' ? 'Blacklisted Emails' : 'Danh sách email bị khóa'}
+                  </h3>
+                  <p className="text-xs text-brand-muted">
+                    {lang === 'EN' ? 'Manage blocked customer emails' : 'Danh sách tài khoản bị khóa không được đặt hàng'}
+                  </p>
+                </div>
+                <span className="bg-red-50 text-red-700 text-xs font-black px-4 py-2 rounded-full border border-red-200 self-start sm:self-auto">
+                  {blacklistDetails.length} {lang === 'EN' ? 'blocked' : 'đang bị khóa'}
+                </span>
+              </div>
+
+              <div className="grow overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="border-b border-brand-beige text-[10px] font-black uppercase tracking-wider text-brand-muted">
+                      <th className="py-4 px-2">{lang === 'EN' ? 'Email Address' : 'Địa chỉ Email'}</th>
+                      <th className="py-4 px-2">{lang === 'EN' ? 'Reason' : 'Lý do khóa'}</th>
+                      <th className="py-4 px-2">{lang === 'EN' ? 'Blocked Date' : 'Ngày chặn'}</th>
+                      <th className="py-4 px-2 text-right">{lang === 'EN' ? 'Action' : 'Thao tác'}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {blacklistDetails.map(detail => (
+                      <tr key={detail.email} className="border-b border-[#FAF9F5] hover:bg-brand-cream/5 text-sm transition-colors">
+                        <td className="py-4 px-2 font-bold text-brand-ink truncate max-w-[200px]" title={detail.email}>
+                          {detail.email}
+                        </td>
+                        <td className="py-4 px-2 text-brand-muted text-xs">
+                          {detail.reason || (lang === 'EN' ? 'No reason' : 'Không có lý do')}
+                        </td>
+                        <td className="py-4 px-2 text-brand-muted text-xs">
+                          {detail.created_at ? format(new Date(detail.created_at), 'yyyy-MM-dd HH:mm') : '-'}
+                        </td>
+                        <td className="py-4 px-2 text-right">
+                          <button
+                            onClick={() => toggleEmailBlacklist(detail.email)}
+                            className="px-4 py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                          >
+                            🔓 {lang === 'EN' ? 'Unblock' : 'Mở khóa'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {blacklistDetails.length === 0 && (
+                      <tr>
+                        <td colSpan={4} className="py-12 text-center text-brand-muted italic">
+                          {lang === 'EN' ? 'No blacklisted emails' : 'Chưa có email nào bị khóa'}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : activeTab === 'reports' ? (
         <div className="grid grid-cols-1 gap-6">
           <div className="bg-white rounded-[2.5rem] p-6 md:p-10 border border-brand-beige shadow-sm overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

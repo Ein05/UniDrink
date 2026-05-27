@@ -548,7 +548,7 @@ const Checkout = () => {
               {lang === 'EN' ? 'Online Payment' : 'Thanh toán trực tuyến'}
             </h3>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              <div id="payos-checkout-container" className="w-full h-[580px] rounded-2xl overflow-hidden"></div>
+              <div id="payos-checkout-container" className="w-full h-[360px] rounded-2xl overflow-hidden"></div>
               
               {activePayOSData && (
                 <div className="bg-brand-cream border border-brand-beige rounded-2xl p-4 space-y-3 text-left font-sans text-xs animate-in fade-in duration-300">

@@ -462,7 +462,7 @@ const Checkout = () => {
               {lang === 'EN' ? 'Online Payment' : 'Thanh toán trực tuyến'}
             </h3>
             <div className="flex-1 overflow-y-auto">
-              <div id="payos-checkout-container" className="w-full h-[600px] rounded-2xl"></div>
+              <div id="payos-checkout-container" className="w-full h-[500px] rounded-2xl"></div>
             </div>
           </div>
         </div>

@@ -55,10 +55,10 @@ export default async function handler(req: any, res: any) {
     const paymentData = {
       orderCode,
       amount: Math.round(totalPrice),
-      description: `UniDrink #${orderCodeText}`,
+      description: orderCodeText, // Exactly 8 characters (e.g. DH000012), compliant with the 9-char limit
       items: [
         {
-          name: `UniDrink #${orderCodeText}`,
+          name: `UniDrink ${orderCodeText}`,
           quantity: 1,
           price: Math.round(totalPrice),
         }

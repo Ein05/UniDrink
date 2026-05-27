@@ -19,16 +19,20 @@ const Checkout = () => {
   const [successCode, setSuccessCode] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
-  const [payosUrl, setPayosUrl] = useState<string | null>(null);
+  const [showPayOSModal, setShowPayOSModal] = useState(false);
+  const payosInstanceRef = React.useRef<any>(null);
 
-  React.useEffect(() => {
-    if (payosUrl) {
-      const timer = setTimeout(() => {
-        window.location.href = payosUrl;
-      }, 2000);
-      return () => clearTimeout(timer);
+  const handleClosePayOS = () => {
+    if (payosInstanceRef.current) {
+      try {
+        payosInstanceRef.current.exit();
+      } catch (e) {
+        console.error('Error exiting payos:', e);
+      }
     }
-  }, [payosUrl]);
+    setShowPayOSModal(false);
+    setLoading(false);
+  };
   const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -146,10 +150,43 @@ const Checkout = () => {
 
           const payosData = await response.json();
           if (payosData && payosData.checkoutUrl) {
-            setPayosUrl(payosData.checkoutUrl);
-            cart.clearCart();
-            setOrderTotal(orderTotalAmount);
-            setSuccessCode(orderCodeText);
+            setShowPayOSModal(true);
+            
+            setTimeout(() => {
+              try {
+                const payos = (window as any).PayOSCheckout.usePayOS({
+                  RETURN_URL: `${window.location.origin}/track?code=${orderCodeText}&payOSStatus=success`,
+                  ELEMENT_ID: 'payos-checkout-container',
+                  CHECKOUT_URL: payosData.checkoutUrl,
+                  embedded: true,
+                  onSuccess: () => {
+                    setShowPayOSModal(false);
+                    setIsPaid(true);
+                    setOrderTotal(orderTotalAmount);
+                    cart.clearCart();
+                    setSuccessCode(orderCodeText);
+                  },
+                  onCancel: () => {
+                    setShowPayOSModal(false);
+                    setErrorMsg(lang === 'EN' ? 'Payment cancelled.' : 'Thanh toán đã bị hủy.');
+                    setLoading(false);
+                  },
+                  onExit: () => {
+                    setShowPayOSModal(false);
+                    setLoading(false);
+                  }
+                });
+                payosInstanceRef.current = payos;
+                payos.open();
+              } catch (err: any) {
+                console.error('[PayOS Init Error]:', err);
+                setShowPayOSModal(false);
+                cart.clearCart();
+                setOrderTotal(orderTotalAmount);
+                setSuccessCode(orderCodeText);
+              }
+            }, 100);
+            return;
           } else {
             throw new Error('Invalid response data from PayOS API');
           }
@@ -195,27 +232,9 @@ const Checkout = () => {
           </div>
 
           {formData.paymentMethod === 'transfer' && !isPaid && (
-            <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500">
-              {payosUrl && (
-                <div className="space-y-3 pb-4 border-b border-brand-beige font-sans">
-                  <a
-                    href={payosUrl}
-                    className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all shadow-lg shadow-blue-600/20 w-full"
-                  >
-                    💳 {lang === 'EN' ? 'Pay Online via PayOS' : 'Thanh toán trực tuyến qua PayOS'}
-                  </a>
-                  <p className="text-[10px] text-brand-muted animate-pulse font-sans">
-                    {lang === 'EN' 
-                      ? 'Redirecting to secure payment page in 2 seconds...' 
-                      : 'Đang chuyển hướng đến trang thanh toán sau 2 giây...'}
-                  </p>
-                </div>
-              )}
-
-              <p className="text-brand-ink font-bold font-sans">
-                {payosUrl 
-                  ? (lang === 'EN' ? 'Or Scan QR Code Manually:' : 'Hoặc quét mã QR chuyển khoản thủ công:') 
-                  : t.scanToPay}
+            <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500 font-sans">
+              <p className="text-brand-ink font-bold">
+                {t.scanToPay}
               </p>
               <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
                 <img
@@ -430,7 +449,24 @@ const Checkout = () => {
         </div>
       </aside>
       </motion.div>
-      <div id="payos-checkout-container"></div>
+      {showPayOSModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 relative shadow-2xl border border-brand-beige flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+            <button
+              onClick={handleClosePayOS}
+              className="absolute top-6 right-6 text-brand-muted hover:text-brand-ink transition-colors font-bold uppercase text-[10px] tracking-wider font-sans"
+            >
+              {lang === 'EN' ? 'Close' : 'Đóng'}
+            </button>
+            <h3 className="font-serif text-2xl font-black text-brand-ink mb-4 text-center">
+              {lang === 'EN' ? 'Online Payment' : 'Thanh toán trực tuyến'}
+            </h3>
+            <div className="flex-1 overflow-y-auto">
+              <div id="payos-checkout-container" className="w-full min-h-[400px] rounded-2xl overflow-hidden"></div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

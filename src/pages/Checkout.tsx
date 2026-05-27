@@ -451,10 +451,10 @@ const Checkout = () => {
       </motion.div>
       {showPayOSModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 relative shadow-2xl border border-brand-beige flex flex-col max-h-[90vh] animate-in zoom-in-95 duration-200">
+          <div className="bg-white w-full max-w-lg rounded-[2.5rem] p-6 relative shadow-2xl border border-brand-beige flex flex-col max-h-[95vh] animate-in zoom-in-95 duration-200">
             <button
               onClick={handleClosePayOS}
-              className="absolute top-6 right-6 text-brand-muted hover:text-brand-ink transition-colors font-bold uppercase text-[10px] tracking-wider font-sans"
+              className="absolute top-6 right-6 text-brand-muted hover:text-brand-ink transition-colors font-bold uppercase text-[10px] tracking-wider font-sans z-10"
             >
               {lang === 'EN' ? 'Close' : 'Đóng'}
             </button>
@@ -462,7 +462,7 @@ const Checkout = () => {
               {lang === 'EN' ? 'Online Payment' : 'Thanh toán trực tuyến'}
             </h3>
             <div className="flex-1 overflow-y-auto">
-              <div id="payos-checkout-container" className="w-full min-h-[400px] rounded-2xl overflow-hidden"></div>
+              <div id="payos-checkout-container" className="w-full h-[600px] rounded-2xl"></div>
             </div>
           </div>
         </div>

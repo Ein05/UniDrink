@@ -19,8 +19,8 @@ BEGIN
         VALUES (NEW.id, 'create', v_changed_by, 'Đơn hàng được khởi tạo thành công.');
 
     ELSIF (TG_OP = 'UPDATE') THEN
-        -- Secure update validation for customer roles (skip for admin and bypass flag)
-        IF auth.role() = 'authenticated' AND NOT private.is_admin() AND COALESCE(current_setting('app.bypass_orders_trigger', true), 'false') != 'true' THEN
+        -- Secure update validation for customer roles (only apply for direct client updates by non-admins)
+        IF current_user = 'authenticated' AND NOT private.is_admin() THEN
             -- 1. Customers cannot change status
             IF OLD.status IS DISTINCT FROM NEW.status THEN
                 RAISE EXCEPTION 'Khách hàng không có quyền thay đổi trạng thái đơn hàng.';

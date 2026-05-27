@@ -58,9 +58,6 @@ DECLARE
     v_spam_limit INTEGER := 3;
     v_pending_count INTEGER;
 BEGIN
-    -- Set transaction-local configuration to bypass order update triggers during auto-cancellation
-    PERFORM set_config('app.bypass_orders_trigger', 'true', true);
-
     -- Auto-cancel pending unpaid orders older than 10 minutes
     UPDATE public.orders
     SET status = 'cancelled'

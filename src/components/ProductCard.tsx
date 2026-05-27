@@ -53,7 +53,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       animate={{ opacity: 1, y: 0 }}
       className="group bg-white p-3 md:p-4 rounded-[1.5rem] shadow-sm border border-brand-beige/50 hover:shadow-md transition-all flex items-center gap-3 md:gap-4 relative"
     >
-      <div className="w-20 h-20 md:w-24 md:h-24 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0 relative overflow-hidden">
+      <div className={cn(
+        "w-20 h-20 md:w-24 md:h-24 bg-[#F8F7F4] rounded-2xl flex items-center justify-center text-2xl md:text-3xl shrink-0 relative overflow-hidden transition-all duration-300",
+        !product.is_available && "opacity-40 grayscale"
+      )}>
         {/* Fallback Emoji */}
         <span className="absolute inset-0 flex items-center justify-center z-0">
           {product.emoji || '☕'}
@@ -71,7 +74,10 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         )}
       </div>
 
-      <div className="flex flex-col justify-between py-1 grow">
+      <div className={cn(
+        "flex flex-col justify-between py-1 grow transition-all duration-300",
+        !product.is_available && "opacity-40"
+      )}>
         <div className="flex justify-between items-start">
           <h3 className="font-serif italic font-extrabold text-[#2D1B14] text-lg md:text-xl leading-tight">{name}</h3>
           <span className="text-[#2D1B14] font-bold text-sm">
@@ -96,20 +102,24 @@ const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         disabled={!product.is_available}
         aria-label={isAdded ? (lang === 'EN' ? "Added to cart" : "Đã thêm vào giỏ") : t.addToCart}
         className={cn(
-          "absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all",
-          isAtMax
-            ? "bg-amber-100 text-amber-600"
-            : isAdded
-              ? "bg-green-500 text-white"
-              : "bg-brand-beige/50 text-brand-brown hover:bg-brand-brown hover:text-white"
+          "absolute bottom-4 right-4 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300",
+          !product.is_available
+            ? "opacity-30 cursor-not-allowed"
+            : isAtMax
+              ? "bg-amber-100 text-amber-600"
+              : isAdded
+                ? "bg-green-500 text-white"
+                : "bg-brand-beige/50 text-brand-brown hover:bg-brand-brown hover:text-white"
         )}
       >
         {isAdded ? <CheckCircle className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
       </button>
 
       {!product.is_available && (
-        <div className="absolute inset-0 bg-white/60 backdrop-blur-[1px] rounded-[1.5rem] flex items-center justify-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-brand-muted">{t.unavailable}</span>
+        <div className="absolute inset-0 bg-white/10 rounded-[1.5rem] flex items-center justify-center z-20 pointer-events-none">
+          <span className="text-[10px] font-black uppercase tracking-widest text-brand-cream bg-brand-brown/95 px-3 py-1.5 rounded-full shadow-md border border-brand-beige/20">
+            {t.unavailable}
+          </span>
         </div>
       )}
     </motion.div>

@@ -9,6 +9,7 @@ import type { Language, Product, Category } from './types';
 import { supabase } from './lib/supabase';
 
 import Header from './components/Header';
+import DesktopModeWarning from './components/DesktopModeWarning';
 import Footer from './components/Footer';
 import Home from './pages/Home';
 import CartPage from './pages/CartPage';
@@ -98,6 +99,7 @@ export default function App() {
         setCategories,
       }}>
         <div className="min-h-screen flex flex-col">
+          <DesktopModeWarning />
           <Header />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 md:px-10 pt-28">
             <AnimatedRoutes />

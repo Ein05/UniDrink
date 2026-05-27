@@ -53,7 +53,7 @@ const Login = () => {
       console.warn('[UniDrink] check_is_admin timed out or failed in Login:', err);
     }
     if (active.value) {
-      navigate(isAdmin ? '/admin/dashboard' : '/track', { replace: true });
+      navigate(isAdmin ? '/admin/dashboard' : '/', { replace: true });
     }
   };
 

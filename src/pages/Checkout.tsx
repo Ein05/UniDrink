@@ -18,6 +18,7 @@ const Checkout = () => {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successCode, setSuccessCode] = useState<string | null>(null);
   const [orderTotal, setOrderTotal] = useState(0);
+  const [isPaid, setIsPaid] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -149,8 +150,22 @@ const Checkout = () => {
 
           const payosData = await response.json();
           if (payosData && payosData.checkoutUrl) {
-            // Redirect customer directly to PayOS secure portal
-            window.location.href = payosData.checkoutUrl;
+            // Open PayOS checkout modal without leaving the website
+            const payos = (window as any).PayOSCheckout.usePayOS({
+              RETURN_URL: `${window.location.origin}/track?code=${orderCodeText}&payOSStatus=success`,
+              ELEMENT_ID: 'payos-checkout-container',
+              CHECKOUT_URL: payosData.checkoutUrl,
+              embedded: false,
+              onSuccess: () => {
+                setIsPaid(true);
+                setOrderTotal(orderTotalAmount);
+                setSuccessCode(orderCodeText);
+              },
+              onCancel: () => {
+                setErrorMsg(lang === 'EN' ? 'Payment cancelled.' : 'Thanh toán đã bị hủy.');
+              }
+            });
+            payos.open();
             return;
           } else {
             throw new Error('Invalid response data from PayOS API');
@@ -177,56 +192,66 @@ const Checkout = () => {
 
   if (successCode) {
     return (
-      <motion.div
-        initial={{ scale: 0.9, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        className="max-w-md mx-auto text-center space-y-8 pt-12"
-      >
-        <div className="bg-green-100 text-green-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-sm">
-          <CheckCircle className="w-12 h-12" />
-        </div>
-        <div className="space-y-4">
-          <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.orderSuccess}</h2>
-          <div className="bg-brand-cream px-8 py-6 rounded-[2rem] inline-block border-2 border-dashed border-brand-beige">
-            <p className="text-brand-muted uppercase font-black text-[10px] tracking-[0.2em] mb-2">{t.orderCode}</p>
-            <p className="text-3xl font-black text-brand-brown font-sans">#{successCode}</p>
+      <>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="max-w-md mx-auto text-center space-y-8 pt-12"
+        >
+          <div className="bg-green-100 text-green-600 w-24 h-24 rounded-full flex items-center justify-center mx-auto shadow-sm">
+            <CheckCircle className="w-12 h-12" />
           </div>
-        </div>
-
-        {formData.paymentMethod === 'transfer' && (
-          <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500">
-            <p className="text-brand-ink font-bold font-sans">{t.scanToPay}</p>
-            <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
-              <img
-                src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'BIDV'}-${import.meta.env.VITE_BANK_ACCOUNT || '8843962433'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'VU DUC ANH')}`}
-                alt="VietQR Code"
-                className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
-              />
+          <div className="space-y-4">
+            <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.orderSuccess}</h2>
+            <div className="bg-brand-cream px-8 py-6 rounded-[2rem] inline-block border-2 border-dashed border-brand-beige">
+              <p className="text-brand-muted uppercase font-black text-[10px] tracking-[0.2em] mb-2">{t.orderCode}</p>
+              <p className="text-3xl font-black text-brand-brown font-sans">#{successCode}</p>
             </div>
-            <p className="text-xs text-brand-muted font-bold">{t.transferNote} <span className="text-brand-brown font-black">{successCode}</span></p>
           </div>
-        )}
 
-        <p className="text-brand-muted font-medium italic font-serif text-sm">
-          {formData.paymentMethod === 'cash'
-            ? t.cashInstructions
-            : t.transferInstructions}
-        </p>
-        <Link to="/" className="inline-flex items-center gap-2 bg-brand-brown text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:scale-105 transition-all shadow-xl shadow-brand-brown/20">
-          {t.backToHome}
-        </Link>
-      </motion.div>
+          {formData.paymentMethod === 'transfer' && !isPaid && (
+            <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500">
+              <p className="text-brand-ink font-bold font-sans">{t.scanToPay}</p>
+              <div className="bg-white p-4 rounded-3xl inline-block border-2 border-brand-caramel shadow-lg shadow-brand-caramel/20">
+                <img
+                  src={`https://img.vietqr.io/image/${import.meta.env.VITE_BANK_ID || 'BIDV'}-${import.meta.env.VITE_BANK_ACCOUNT || '8843962433'}-compact.png?amount=${orderTotal}&addInfo=${successCode}&accountName=${encodeURIComponent(import.meta.env.VITE_BANK_ACCOUNT_NAME || 'VU DUC ANH')}`}
+                  alt="VietQR Code"
+                  className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
+                />
+              </div>
+              <p className="text-xs text-brand-muted font-bold">{t.transferNote} <span className="text-brand-brown font-black">{successCode}</span></p>
+            </div>
+          )}
+
+          {isPaid && (
+            <div className="bg-blue-50 text-blue-700 p-4 rounded-2xl text-xs font-bold border border-blue-100 max-w-sm mx-auto">
+              🎉 {lang === 'EN' ? 'Payment processed successfully via PayOS!' : 'Đã thanh toán thành công qua cổng PayOS!'}
+            </div>
+          )}
+
+          <p className="text-brand-muted font-medium italic font-serif text-sm">
+            {isPaid
+              ? (lang === 'EN' ? 'Your payment was completed. We are preparing your order!' : 'Đơn hàng đã được thanh toán. Chúng tôi đang chuẩn bị đồ uống cho bạn!')
+              : (formData.paymentMethod === 'cash' ? t.cashInstructions : t.transferInstructions)}
+          </p>
+          <Link to="/" className="inline-flex items-center gap-2 bg-brand-brown text-white px-10 py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-xs hover:scale-105 transition-all shadow-xl shadow-brand-brown/20">
+            {t.backToHome}
+          </Link>
+        </motion.div>
+        <div id="payos-checkout-container"></div>
+      </>
     );
   }
 
 
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-16"
-    >
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="max-w-5xl mx-auto flex flex-col lg:flex-row gap-16"
+      >
       <div className="flex-1 space-y-10">
         <h2 className="text-3xl md:text-4xl font-serif text-brand-ink">{t.checkoutTitle}</h2>
 
@@ -388,7 +413,9 @@ const Checkout = () => {
           </button>
         </div>
       </aside>
-    </motion.div>
+      </motion.div>
+      <div id="payos-checkout-container"></div>
+    </>
   );
 };
 

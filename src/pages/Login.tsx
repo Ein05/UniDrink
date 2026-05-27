@@ -1,9 +1,3 @@
-import React, { useState, useEffect, type FormEvent } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'motion/react';
-import { supabase, withTimeout } from '../lib/supabase';
-import { useApp } from '../context/AppContext';
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'motion/react';

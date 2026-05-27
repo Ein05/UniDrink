@@ -60,7 +60,7 @@ const Login = () => {
     };
     checkSessionAndRedirect();
     return () => { active.value = false; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [navigate, notAuthorized]);
 
   /* ── Google auth ── */

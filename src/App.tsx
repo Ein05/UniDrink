@@ -82,6 +82,22 @@ export default function App() {
       });
   }, []);
 
+  // Clear cart if returning from a successful PayOS payment redirect
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payOSStatus') === 'success') {
+        cart.clearCart();
+        // Remove param from URL to keep it clean and prevent repeat clears
+        const url = new URL(window.location.href);
+        url.searchParams.delete('payOSStatus');
+        window.history.replaceState({}, document.title, url.pathname + url.search);
+      }
+    } catch (e) {
+      console.error('Error clearing cart from URL search params:', e);
+    }
+  }, [cart]);
+
   const t = translations[lang];
 
   return (

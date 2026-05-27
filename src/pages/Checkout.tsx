@@ -116,9 +116,6 @@ const Checkout = () => {
       const orderCodeText = data as string;
       const orderTotalAmount = cart.total;
 
-      // Clear cart immediately to prevent duplicate orders
-      cart.clearCart();
-
       if (formData.paymentMethod === 'transfer') {
         try {
           // Call serverless API to create PayOS payment link
@@ -148,6 +145,7 @@ const Checkout = () => {
               onSuccess: () => {
                 setIsPaid(true);
                 setOrderTotal(orderTotalAmount);
+                cart.clearCart();
                 setSuccessCode(orderCodeText);
               },
               onCancel: () => {
@@ -162,11 +160,13 @@ const Checkout = () => {
         } catch (payosErr) {
           console.error('[Checkout PayOS Error]:', payosErr);
           // Fallback to manual QR display if PayOS integration fails
+          cart.clearCart();
           setOrderTotal(orderTotalAmount);
           setSuccessCode(orderCodeText);
         }
       } else {
         // Cash order: Show standard checkout success screen
+        cart.clearCart();
         setOrderTotal(orderTotalAmount);
         setSuccessCode(orderCodeText);
       }

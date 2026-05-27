@@ -51,6 +51,7 @@ export default async function handler(req: any, res: any) {
     const orderCode = parseInt(numericMatch[0], 10);
 
     const baseUrl = req.headers.origin || 'http://localhost:3000';
+    const expiredAt = Math.floor(Date.now() / 1000) + 10 * 60; // Link expires in 10 minutes
 
     const paymentData = {
       orderCode,
@@ -65,6 +66,7 @@ export default async function handler(req: any, res: any) {
       ],
       returnUrl: `${baseUrl}/track`,
       cancelUrl: `${baseUrl}/track`,
+      expiredAt,
     };
 
     const paymentLink = await payOS.paymentRequests.create(paymentData);

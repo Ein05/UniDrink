@@ -58,6 +58,13 @@ DECLARE
     v_spam_limit INTEGER := 3;
     v_pending_count INTEGER;
 BEGIN
+    -- Auto-cancel pending unpaid orders older than 10 minutes
+    UPDATE public.orders
+    SET status = 'cancelled'
+    WHERE status = 'pending'
+      AND is_paid = false
+      AND created_at < NOW() - INTERVAL '10 minutes';
+
     -- Blacklist check
     IF EXISTS (
         SELECT 1 FROM public.blacklisted_emails

@@ -36,11 +36,16 @@
   @apply bg-brand-brown;
 }
 
-/* PayOS Embedded Iframe styling */
+/* PayOS Embedded Iframe styling - Clip the top header tabs */
+#payos-checkout-container {
+  position: relative;
+  overflow: hidden;
+}
 #payos-checkout-container iframe {
   border: none !important;
   width: 100% !important;
-  height: 100% !important;
+  height: calc(100% + 74px) !important;
+  margin-top: -74px !important;
   border-radius: inherit !important;
 }
 

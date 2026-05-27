@@ -12,6 +12,36 @@ const hasStoredSession = () =>
     (key) => key.startsWith('sb-') && key.endsWith('-auth-token')
   );
 
+const getBankName = (bin: string) => {
+  const binMap: Record<string, string> = {
+    '970418': 'BIDV',
+    '970422': 'MB Bank',
+    '970415': 'VietinBank',
+    '970436': 'Vietcombank',
+    '970405': 'Agribank',
+    '970407': 'Techcombank',
+    '970416': 'ACB',
+    '970423': 'TPBank',
+    '970432': 'VPBank',
+    '970403': 'Sacombank',
+    '970425': 'ABBANK',
+    '970437': 'HDBank',
+    '970441': 'VIB',
+    '970429': 'SCB',
+    '970443': 'SHB',
+    '970428': 'Nam A Bank',
+    '970414': 'OceanBank',
+    '970440': 'SeABank',
+    '970419': 'NCB',
+    '970448': 'OCB',
+    '970431': 'Eximbank',
+    '970426': 'MSB',
+    '970468': 'Cake by VPBank',
+    '970466': 'LienVietPostBank',
+  };
+  return binMap[bin] || `BIN: ${bin}`;
+};
+
 const Checkout = () => {
   const { t, cart, lang } = useApp();
   const [loading, setLoading] = useState(false);
@@ -20,6 +50,7 @@ const Checkout = () => {
   const [orderTotal, setOrderTotal] = useState(0);
   const [isPaid, setIsPaid] = useState(false);
   const [showPayOSModal, setShowPayOSModal] = useState(false);
+  const [activePayOSData, setActivePayOSData] = useState<any>(null);
   const payosInstanceRef = React.useRef<any>(null);
 
   const handleClosePayOS = () => {
@@ -148,8 +179,9 @@ const Checkout = () => {
             throw new Error('Failed to create PayOS link');
           }
 
-          const payosData = await response.json();
-          if (payosData && payosData.checkoutUrl) {
+          const payosResult = await response.json();
+          if (payosResult && payosResult.checkoutUrl) {
+            setActivePayOSData(payosResult);
             setShowPayOSModal(true);
             
             setTimeout(() => {
@@ -157,7 +189,7 @@ const Checkout = () => {
                 const payos = (window as any).PayOSCheckout.usePayOS({
                   RETURN_URL: `${window.location.origin}/track`,
                   ELEMENT_ID: 'payos-checkout-container',
-                  CHECKOUT_URL: payosData.checkoutUrl,
+                  CHECKOUT_URL: payosResult.checkoutUrl,
                   embedded: true,
                   onSuccess: () => {
                     setShowPayOSModal(false);
@@ -232,7 +264,7 @@ const Checkout = () => {
           </div>
 
           {formData.paymentMethod === 'transfer' && !isPaid && (
-            <div className="space-y-4 py-4 animate-in fade-in zoom-in duration-500 font-sans">
+            <div className="space-y-6 py-4 animate-in fade-in zoom-in duration-500 font-sans">
               <p className="text-brand-ink font-bold">
                 {t.scanToPay}
               </p>
@@ -243,7 +275,61 @@ const Checkout = () => {
                   className="w-48 h-48 md:w-56 md:h-56 object-cover rounded-2xl mx-auto"
                 />
               </div>
-              <p className="text-xs text-brand-muted font-bold">{t.transferNote} <span className="text-brand-brown font-black">{successCode}</span></p>
+              
+              <div className="bg-brand-cream border border-brand-beige rounded-2xl p-4 max-w-sm mx-auto space-y-3 text-left font-sans text-xs">
+                <p className="text-center font-bold text-brand-muted uppercase text-[10px] tracking-wider mb-1">
+                  {lang === 'EN' ? 'Manual Transfer Details' : 'Thông tin chuyển khoản thủ công'}
+                </p>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Bank Name:' : 'Ngân hàng:'}</span>
+                  <span className="font-bold text-brand-ink">{import.meta.env.VITE_BANK_ID || 'BIDV'}</span>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Account No:' : 'Số tài khoản:'}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-brand-brown tracking-wider">{import.meta.env.VITE_BANK_ACCOUNT || '8843962433'}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(import.meta.env.VITE_BANK_ACCOUNT || '8843962433');
+                        alert(lang === 'EN' ? 'Account number copied!' : 'Đã sao chép số tài khoản!');
+                      }}
+                      className="px-2 py-1 bg-brand-beige/50 text-brand-brown rounded hover:bg-brand-beige transition-colors text-[10px] font-bold"
+                    >
+                      {lang === 'EN' ? 'Copy' : 'Sao chép'}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Account Holder:' : 'Chủ tài khoản:'}</span>
+                  <span className="font-bold text-brand-ink uppercase">{import.meta.env.VITE_BANK_ACCOUNT_NAME || 'VU DUC ANH'}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Amount:' : 'Số tiền:'}</span>
+                  <span className="font-black text-green-600">{formatCurrency(orderTotal)}</span>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Message:' : 'Nội dung chuyển khoản:'}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-black text-brand-brown">{successCode}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(successCode);
+                        alert(lang === 'EN' ? 'Message copied!' : 'Đã sao chép nội dung chuyển khoản!');
+                      }}
+                      className="px-2 py-1 bg-brand-beige/50 text-brand-brown rounded hover:bg-brand-beige transition-colors text-[10px] font-bold"
+                    >
+                      {lang === 'EN' ? 'Copy' : 'Sao chép'}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
@@ -461,8 +547,65 @@ const Checkout = () => {
             <h3 className="font-serif text-2xl font-black text-brand-ink mb-4 text-center">
               {lang === 'EN' ? 'Online Payment' : 'Thanh toán trực tuyến'}
             </h3>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               <div id="payos-checkout-container" className="w-full h-[580px] rounded-2xl overflow-hidden"></div>
+              
+              {activePayOSData && (
+                <div className="bg-brand-cream border border-brand-beige rounded-2xl p-4 space-y-3 text-left font-sans text-xs animate-in fade-in duration-300">
+                  <p className="text-center font-bold text-brand-muted uppercase text-[10px] tracking-wider mb-1">
+                    {lang === 'EN' ? 'Manual Transfer Backup' : 'Thông tin chuyển khoản thủ công'}
+                  </p>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Bank Name:' : 'Ngân hàng:'}</span>
+                    <span className="font-bold text-brand-ink">{getBankName(activePayOSData.bin)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Account No:' : 'Số tài khoản:'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-brand-brown tracking-wider">{activePayOSData.accountNumber}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(activePayOSData.accountNumber);
+                          alert(lang === 'EN' ? 'Account number copied!' : 'Đã sao chép số tài khoản!');
+                        }}
+                        className="px-2 py-1 bg-brand-beige/50 text-brand-brown rounded hover:bg-brand-beige transition-colors text-[10px] font-bold"
+                      >
+                        {lang === 'EN' ? 'Copy' : 'Sao chép'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Account Holder:' : 'Chủ tài khoản:'}</span>
+                    <span className="font-bold text-brand-ink uppercase">{activePayOSData.accountName}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Amount:' : 'Số tiền:'}</span>
+                    <span className="font-black text-green-600">{formatCurrency(activePayOSData.amount)}</span>
+                  </div>
+
+                  <div className="flex justify-between items-center">
+                    <span className="text-brand-muted font-bold">{lang === 'EN' ? 'Message:' : 'Nội dung chuyển khoản:'}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-brand-brown">{activePayOSData.description}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(activePayOSData.description);
+                          alert(lang === 'EN' ? 'Message copied!' : 'Đã sao chép nội dung chuyển khoản!');
+                        }}
+                        className="px-2 py-1 bg-brand-beige/50 text-brand-brown rounded hover:bg-brand-beige transition-colors text-[10px] font-bold"
+                      >
+                        {lang === 'EN' ? 'Copy' : 'Sao chép'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

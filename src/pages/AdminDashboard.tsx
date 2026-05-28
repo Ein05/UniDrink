@@ -894,7 +894,7 @@ const AdminDashboard = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-4 bg-red-650 hover:bg-red-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-red-650/10"
+                  className="w-full py-4 bg-red-600 hover:bg-red-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all shadow-lg shadow-red-600/10"
                 >
                   {lang === 'EN' ? 'Block Email' : 'Khóa Email'}
                 </button>

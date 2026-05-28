@@ -28,7 +28,7 @@ RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
         SELECT 1 FROM public.admins
-        WHERE LOWER(TRIM(email)) = LOWER(TRIM(auth.jwt() ->> 'email'))
+        WHERE email = LOWER(TRIM(auth.jwt() ->> 'email'))
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
@@ -51,28 +51,28 @@ CREATE POLICY "Allow public read access to categories" ON public.categories
     FOR SELECT USING (true);
 
 CREATE POLICY "Allow admin write access to categories" ON public.categories
-    FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
 
 -- Settings: Everyone can read, only admin can write
 CREATE POLICY "Allow public read access to settings" ON public.settings
     FOR SELECT USING (true);
 
 CREATE POLICY "Allow admin write access to settings" ON public.settings
-    FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
 
 -- Products: Everyone can read, only Admin can write
 CREATE POLICY "Allow public read access to products" ON public.products
     FOR SELECT USING (true);
 
 CREATE POLICY "Allow admin write access to products" ON public.products
-    FOR ALL TO authenticated USING (private.is_admin()) WITH CHECK (private.is_admin());
+    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
 
 -- Orders Policies
 -- Read: Owner (matching email) or Admin can view (Uses fast inline check querying admins, safe since admins RLS does not recurse)
 CREATE POLICY "Allow read orders owned or admin" ON public.orders
     FOR SELECT USING (
-        (customer_email = LOWER(TRIM(auth.jwt() ->> 'email'))) 
-        OR private.is_admin()
+        (customer_email = (SELECT LOWER(TRIM(auth.jwt() ->> 'email')))) 
+        OR (SELECT private.is_admin())
     );
 
 -- Update: Only admins can update orders (e.g. status, is_paid)

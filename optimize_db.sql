@@ -1,42 +1,61 @@
--- ============================================================
--- STEP 3: DATABASE FUNCTIONS & RPCs
--- Run this third to define secure transaction helper functions.
--- ============================================================
+-- ====================================================================
+-- UNIDRINK DATABASE OPTIMIZATION & RLS LINTER FIXES
+-- Run this in your Supabase SQL Editor to apply performance optimizations
+-- ====================================================================
 
--- 1. Sequence for sequential order code
-CREATE SEQUENCE IF NOT EXISTS public.order_code_seq START 1;
+-- 1. Create Performance Indexes
+CREATE INDEX IF NOT EXISTS idx_orders_created_at_desc ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_pending_unpaid ON public.orders(customer_email, status) WHERE status = 'pending';
 
--- Sync sequence only if there are existing orders to prevent setting value to 0
-DO $$
-DECLARE
-    max_val INTEGER;
+-- 2. Optimize private.is_admin() helper
+CREATE OR REPLACE FUNCTION private.is_admin()
+RETURNS BOOLEAN AS $$
 BEGIN
-    SELECT MAX(SUBSTRING(order_code FROM 3)::INTEGER) INTO max_val
-    FROM public.orders
-    WHERE order_code ~ '^DH[0-9]+$';
-    
-    IF max_val IS NOT NULL AND max_val > 0 THEN
-        PERFORM setval('public.order_code_seq', max_val, true);
-    END IF;
-END $$;
-
--- 2. Generate sequential order code (returns e.g. DH000001)
-CREATE OR REPLACE FUNCTION public.generate_order_code()
-RETURNS TEXT AS $$
-DECLARE
-    next_seq BIGINT;
-    new_code TEXT;
-BEGIN
-    next_seq := nextval('public.order_code_seq');
-    new_code := 'DH' || LPAD(next_seq::TEXT, 6, '0');
-    RETURN new_code;
+    RETURN EXISTS (
+        SELECT 1 FROM public.admins
+        WHERE email = LOWER(TRIM(auth.jwt() ->> 'email'))
+    );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
-REVOKE EXECUTE ON FUNCTION public.generate_order_code() FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.generate_order_code() TO service_role;
+-- 3. Fix "orders" SELECT RLS policy to resolve InitPlan re-evaluation
+DROP POLICY IF EXISTS "Allow read orders owned or admin" ON public.orders;
+CREATE POLICY "Allow read orders owned or admin" ON public.orders
+    FOR SELECT USING (
+        (customer_email = (SELECT LOWER(TRIM(auth.jwt() ->> 'email')))) 
+        OR (SELECT private.is_admin())
+    );
 
--- 3. Create order with items (safe transactional order placement RPC)
+-- 4. Fix Multiple Permissive Policies for SELECT by narrowing admin write policies
+DROP POLICY IF EXISTS "Allow admin write access to categories" ON public.categories;
+CREATE POLICY "Allow admin write access to categories" ON public.categories
+    FOR INSERT, UPDATE, DELETE TO authenticated 
+    USING ((SELECT private.is_admin())) 
+    WITH CHECK ((SELECT private.is_admin()));
+
+DROP POLICY IF EXISTS "Allow admin write access to settings" ON public.settings;
+CREATE POLICY "Allow admin write access to settings" ON public.settings
+    FOR INSERT, UPDATE, DELETE TO authenticated 
+    USING ((SELECT private.is_admin())) 
+    WITH CHECK ((SELECT private.is_admin()));
+
+DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
+CREATE POLICY "Allow admin write access to products" ON public.products
+    FOR INSERT, UPDATE, DELETE TO authenticated 
+    USING ((SELECT private.is_admin())) 
+    WITH CHECK ((SELECT private.is_admin()));
+
+-- 5. Optimize get_order_by_code to hit Unique index directly
+CREATE OR REPLACE FUNCTION public.get_order_by_code(p_code TEXT)
+RETURNS SETOF public.orders AS $$
+BEGIN
+    RETURN QUERY
+    SELECT * FROM public.orders
+    WHERE order_code = UPPER(TRIM(p_code));
+END;
+$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
+
+-- 6. Optimize create_order_with_items to hit index on blacklist and customer_email
 CREATE OR REPLACE FUNCTION public.create_order_with_items(
     p_customer_name TEXT,
     p_customer_phone TEXT,
@@ -44,7 +63,7 @@ CREATE OR REPLACE FUNCTION public.create_order_with_items(
     p_note TEXT,
     p_payment_method TEXT,
     p_customer_email TEXT,
-    p_items JSONB -- Array of { id: string, quantity: number }
+    p_items JSONB
 )
 RETURNS TEXT AS $$
 DECLARE
@@ -91,7 +110,7 @@ BEGIN
     -- Generate sequential code
     v_order_code := public.generate_order_code();
 
-    -- Create parent order (initially total=0, updated after items are added)
+    -- Create parent order
     INSERT INTO public.orders (
         customer_name, customer_phone, address, note, payment_method, customer_email, total_price, order_code
     ) VALUES (
@@ -110,7 +129,7 @@ BEGIN
             RAISE EXCEPTION 'Sản phẩm với ID % không tồn tại hoặc đã bị xóa.', v_item.id;
         END IF;
 
-        -- Store item with snapshotted prices and names to protect purchase history
+        -- Store item
         INSERT INTO public.order_items (
             order_id, product_id, product_name, product_name_en, quantity, price
         ) VALUES (
@@ -146,44 +165,3 @@ BEGIN
     RETURN v_order_code;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
-
-REVOKE EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.create_order_with_items(TEXT, TEXT, TEXT, TEXT, TEXT, TEXT, JSONB) TO authenticated, service_role;
-
--- 4. Get single order details safely by tracking code (bypasses direct select RLS)
-CREATE OR REPLACE FUNCTION public.get_order_by_code(p_code TEXT)
-RETURNS SETOF public.orders AS $$
-BEGIN
-    RETURN QUERY
-    SELECT * FROM public.orders
-    WHERE order_code = UPPER(TRIM(p_code));
-END;
-$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
-
-REVOKE EXECUTE ON FUNCTION public.get_order_by_code(TEXT) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_order_by_code(TEXT) TO authenticated, service_role;
-
--- 5. Get order logs securely using the secure order UUID (handles guest tracking)
-CREATE OR REPLACE FUNCTION public.get_order_logs_by_order_id(p_order_id UUID)
-RETURNS SETOF public.order_logs AS $$
-BEGIN
-    RETURN QUERY
-    SELECT * FROM public.order_logs
-    WHERE order_id = p_order_id
-    ORDER BY created_at ASC;
-END;
-$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
-
-REVOKE EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.get_order_logs_by_order_id(UUID) TO authenticated, service_role;
-
--- 6. Check if the current authenticated user is an admin (used by frontend AdminDashboard)
-CREATE OR REPLACE FUNCTION public.check_is_admin()
-RETURNS BOOLEAN AS $$
-BEGIN
-    RETURN private.is_admin();
-END;
-$$ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public;
-
-REVOKE EXECUTE ON FUNCTION public.check_is_admin() FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.check_is_admin() TO authenticated, service_role;

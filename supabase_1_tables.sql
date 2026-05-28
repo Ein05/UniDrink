@@ -112,5 +112,8 @@ CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON public.order_items(order_
 CREATE INDEX IF NOT EXISTS idx_order_items_product_id ON public.order_items(product_id);
 CREATE INDEX IF NOT EXISTS idx_order_logs_order_id ON public.order_logs(order_id);
 CREATE INDEX IF NOT EXISTS idx_orders_customer_email ON public.orders(customer_email);
+CREATE INDEX IF NOT EXISTS idx_orders_created_at_desc ON public.orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_pending_unpaid ON public.orders(customer_email, status) WHERE status = 'pending';
+
 
 

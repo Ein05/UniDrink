@@ -132,6 +132,13 @@ const Checkout = () => {
     e.preventDefault();
     setErrorMsg(null);
 
+    // Validate họ và tên (chỉ cho phép chữ cái và khoảng trắng, tối thiểu 2 ký tự)
+    const trimmedName = formData.name.trim();
+    const nameRegex = /^[\p{L}\s']{2,50}$/u;
+    if (!nameRegex.test(trimmedName)) {
+      setErrorMsg(t.invalidName);
+      return;
+    }
 
     // FIX #6: validate số điện thoại VN (10 số, bắt đầu bằng 0)
     const normalizedPhone = normalizePhone(formData.phone);

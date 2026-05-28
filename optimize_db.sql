@@ -28,22 +28,37 @@ CREATE POLICY "Allow read orders owned or admin" ON public.orders
 
 -- 4. Fix Multiple Permissive Policies for SELECT by narrowing admin write policies
 DROP POLICY IF EXISTS "Allow admin write access to categories" ON public.categories;
-CREATE POLICY "Allow admin write access to categories" ON public.categories
-    FOR INSERT, UPDATE, DELETE TO authenticated 
-    USING ((SELECT private.is_admin())) 
-    WITH CHECK ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS "Allow admin insert categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin update categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin delete categories" ON public.categories;
+CREATE POLICY "Allow admin insert categories" ON public.categories
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update categories" ON public.categories
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete categories" ON public.categories
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 DROP POLICY IF EXISTS "Allow admin write access to settings" ON public.settings;
-CREATE POLICY "Allow admin write access to settings" ON public.settings
-    FOR INSERT, UPDATE, DELETE TO authenticated 
-    USING ((SELECT private.is_admin())) 
-    WITH CHECK ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS "Allow admin insert settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin update settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin delete settings" ON public.settings;
+CREATE POLICY "Allow admin insert settings" ON public.settings
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update settings" ON public.settings
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete settings" ON public.settings
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
-CREATE POLICY "Allow admin write access to products" ON public.products
-    FOR INSERT, UPDATE, DELETE TO authenticated 
-    USING ((SELECT private.is_admin())) 
-    WITH CHECK ((SELECT private.is_admin()));
+DROP POLICY IF EXISTS "Allow admin insert products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin update products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin delete products" ON public.products;
+CREATE POLICY "Allow admin insert products" ON public.products
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update products" ON public.products
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete products" ON public.products
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 -- 5. Optimize get_order_by_code to hit Unique index directly
 CREATE OR REPLACE FUNCTION public.get_order_by_code(p_code TEXT)

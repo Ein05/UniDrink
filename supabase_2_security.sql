@@ -8,6 +8,9 @@ DROP POLICY IF EXISTS "Allow admin access to admins" ON public.admins;
 DROP POLICY IF EXISTS "Allow admin access to blacklisted_emails" ON public.blacklisted_emails;
 DROP POLICY IF EXISTS "Allow public read access to products" ON public.products;
 DROP POLICY IF EXISTS "Allow admin write access to products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin insert products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin update products" ON public.products;
+DROP POLICY IF EXISTS "Allow admin delete products" ON public.products;
 DROP POLICY IF EXISTS "Allow read orders owned or admin" ON public.orders;
 DROP POLICY IF EXISTS "Allow insert orders" ON public.orders;
 DROP POLICY IF EXISTS "Allow update orders" ON public.orders;
@@ -17,6 +20,14 @@ DROP POLICY IF EXISTS "Allow insert order_items" ON public.order_items;
 DROP POLICY IF EXISTS "Allow read order_logs if order is viewable" ON public.order_logs;
 DROP POLICY IF EXISTS "Allow public read access to settings" ON public.settings;
 DROP POLICY IF EXISTS "Allow admin write access to settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin insert settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin update settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow admin delete settings" ON public.settings;
+DROP POLICY IF EXISTS "Allow public read access to categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin write access to categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin insert categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin update categories" ON public.categories;
+DROP POLICY IF EXISTS "Allow admin delete categories" ON public.categories;
 
 -- 2. Helper Admin Checking Function (Marked as STABLE for performance)
 DROP FUNCTION IF EXISTS public.is_admin() CASCADE;
@@ -50,22 +61,34 @@ CREATE POLICY "Allow admin access to blacklisted_emails" ON public.blacklisted_e
 CREATE POLICY "Allow public read access to categories" ON public.categories
     FOR SELECT USING (true);
 
-CREATE POLICY "Allow admin write access to categories" ON public.categories
-    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin insert categories" ON public.categories
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update categories" ON public.categories
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete categories" ON public.categories
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 -- Settings: Everyone can read, only admin can write
 CREATE POLICY "Allow public read access to settings" ON public.settings
     FOR SELECT USING (true);
 
-CREATE POLICY "Allow admin write access to settings" ON public.settings
-    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin insert settings" ON public.settings
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update settings" ON public.settings
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete settings" ON public.settings
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 -- Products: Everyone can read, only Admin can write
 CREATE POLICY "Allow public read access to products" ON public.products
     FOR SELECT USING (true);
 
-CREATE POLICY "Allow admin write access to products" ON public.products
-    FOR INSERT, UPDATE, DELETE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin insert products" ON public.products
+    FOR INSERT TO authenticated WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin update products" ON public.products
+    FOR UPDATE TO authenticated USING ((SELECT private.is_admin())) WITH CHECK ((SELECT private.is_admin()));
+CREATE POLICY "Allow admin delete products" ON public.products
+    FOR DELETE TO authenticated USING ((SELECT private.is_admin()));
 
 -- Orders Policies
 -- Read: Owner (matching email) or Admin can view (Uses fast inline check querying admins, safe since admins RLS does not recurse)

@@ -1133,7 +1133,7 @@ const AdminDashboard = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap md:flex-col gap-3 justify-center md:items-end md:min-w-[160px]">
+              <div className="flex flex-wrap md:flex-col gap-3 justify-center md:items-stretch md:min-w-[160px]">
                 {order.status !== 'done' && order.status !== 'cancelled' && (
                   <>
                     <button
